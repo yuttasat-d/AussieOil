@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบจัดการข้อมูลผู้เสียหาย</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  
+  <style>
+    :root {
+      --primary-color: #4a76a8; /* สีฟ้าเทา สบายตา */
+      --bg-color: #f0f4f8; /* พื้นหลังสีเทาอมฟ้าอ่อนๆ */
+      --card-bg: #ffffff;
+      --text-main: #334155;
+    }
+    body { background-color: var(--bg-color); font-family: 'Sarabun', sans-serif; color: var(--text-main); }
+    .navbar { background-color: var(--primary-color) !important; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    .navbar-brand { font-weight: 500; letter-spacing: 0.5px; }
+    .card-stat { border-radius: 12px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s;}
+    .card-stat:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+    
+    .nav-pills { background: white; padding: 10px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+    .nav-pills .nav-link { cursor: pointer; color: #64748b; font-weight: 500; border-radius: 8px; padding: 10px 20px; transition: all 0.3s; margin: 0 5px;}
+    .nav-pills .nav-link:hover { background-color: #f1f5f9; color: #334155; }
+    .nav-pills .nav-link.active { background-color: var(--primary-color); color: white; box-shadow: 0 4px 10px rgba(74, 118, 168, 0.3); }
+    
+    .content-section { display: none; animation: fadeIn 0.4s ease-in-out; }
+    .content-section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Format table */
+    .table-container { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
+    .table thead th { background-color: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: 600; white-space: nowrap; }
+    
+    .form-control, .form-select { border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px 15px; }
+    .form-control:focus, .form-select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 0.25rem rgba(74, 118, 168, 0.2); }
+    .btn { border-radius: 8px; font-weight: 500; padding: 8px 20px; }
+    
+    .required::after { content: " *"; color: #ef4444; }
+    
+    /* Chart Container */
+    .chart-container { position: relative; height: 350px; width: 100%; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <div class="container d-flex justify-content-start align-items-center">
+      <a class="navbar-brand d-flex align-items-center gap-2 m-0" href="#">
+        <img src="https://lh3.googleusercontent.com/d/1eaXBI7ZI5GyzJVkBN35eG1SUmsdbwBgy" 
+             alt="Aussie Oil Logo" 
+             style="height: 42px; width: 42px; object-fit: contain; border-radius: 50%; background-color: white; padding: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        <span>ระบบบันทึกข้อมูลผู้เสียหาย Aussie Oil</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="container mb-5">
+    
+    <ul class="nav nav-pills mb-4 justify-content-center" id="menuTabs">
+      <li class="nav-item">
+        <a class="nav-link active" data-tab="form"><i class="fa-solid fa-file-signature"></i> บันทึกข้อมูล (ฟอร์ม)</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard สรุปผล</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="table"><i class="fa-solid fa-table-list"></i> ตารางข้อมูลทั้งหมด</a>
+      </li>
+    </ul>
+
+    <div id="section-dashboard" class="content-section">
+      <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+          <div class="card card-stat bg-white text-center p-3 border-start border-primary border-5">
+            <h5 class="text-muted">จำนวนผู้เสียหายรวม (ราย)</h5>
+            <h2 id="dash-victims" class="text-primary fw-bold">0</h2>
+          </div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <div class="card card-stat bg-white text-center p-3 border-start border-danger border-5">
+            <h5 class="text-muted">จำนวนเงินลงทุนทั้งหมด (บาท)</h5>
+            <h2 id="dash-net-amount" class="text-danger fw-bold">0.00</h2>
+          </div>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-lg-5 mb-4">
+          <div class="card card-stat p-3 h-100">
+            <h5 class="mb-3 text-center">สัดส่วนมูลค่าเงินลงทุนจำแนกตามประเภทสัญญา</h5>
+            <div class="chart-container">
+              <canvas id="invChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-7 mb-4">
+          <div class="card card-stat p-3 h-100">
+            <h5 class="mb-3">สรุปข้อมูลแยกตามประเภทสัญญา</h5>
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>ประเภทสัญญา</th>
+                    <th class="text-end">จำนวน(สัญญา)</th>
+                    <th class="text-end">จำนวน(หน่วย)</th>
+                    <th class="text-end">มูลค่าสุทธิ(บาท)</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-table-body">
+                  <tr><td colspan="4" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="section-form" class="content-section active">
+      <div class="card card-stat p-4 mx-auto" style="max-width: 1000px;">
+        <h4 class="mb-4 border-bottom pb-2" id="formTitle"><i class="fa-solid fa-plus"></i> เพิ่มข้อมูลผู้เสียหาย/สัญญา</h4>
+        
+        <form id="dataForm">
+          <input type="hidden" id="recordId" name="id">
+          
+          <div class="row mb-3">
+            <div class="col-md-6 mb-3">
+              <label class="form-label required">แฟ้มที่ (อ้างอิงเอกสาร)</label>
+              <input type="text" class="form-control" id="fileNo" name="fileNo" required placeholder="เช่น แฟ้ม 1, เล่มที่ 2">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label required">เลขประจำตัวประชาชน (13 หลัก)</label>
+              <input type="text" class="form-control" id="idCard" name="idCard" required maxlength="13" placeholder="xxxxxxxxxxxxx">
+              <div class="invalid-feedback" id="idCardFeedback">กรุณากรอกเฉพาะตัวเลข 13 หลัก</div>
+              <div class="valid-feedback"><i class="fa-solid fa-check-circle"></i> เลขประจำตัวประชาชนถูกต้อง</div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6 mb-3">
+              <label class="form-label required">ชื่อ - นามสกุล</label>
+              <input type="text" class="form-control" id="fullName" name="fullName" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">ผู้รับมอบอำนาจ</label>
+              <input type="text" class="form-control" id="phone" name="phone" placeholder="ระบุชื่อผู้รับมอบอำนาจ (ถ้ามี)">
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-4 mb-3">
+              <label class="form-label required">วันที่ทำสัญญา</label>
+              <input type="text" class="form-control bg-white" id="contractDate" name="contractDate" required placeholder="เลือกวันที่ทำสัญญา" readonly>
+              <div class="mt-2 d-flex flex-wrap gap-1">
+                <span class="small text-muted align-self-center me-1">ข้ามไปปี:</span>
+                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="jumpToYear(2018)">2561</button>
+                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="jumpToYear(2019)">2562</button>
+                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="jumpToYear(2020)">2563</button>
+                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="jumpToYear(2021)">2564</button>
+                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="jumpToYear(2022)">2565</button>
+              </div>
+            </div>
+            <div class="col-md-8 mb-3">
+              <label class="form-label required">ทำสัญญากับบริษัท (เลือกหรือพิมพ์เพิ่มได้)</label>
+              <input type="text" class="form-control" id="companyName" name="companyName" list="companyList" autocomplete="off" required placeholder="เลือก หรือ พิมพ์ชื่อบริษัทเพิ่มได้เลย">
+              <datalist id="companyList"></datalist>
+            </div>
+          </div>
+          
+          <div class="row mb-3">
+            <div class="col-md-12 mb-3">
+              <label class="form-label required">ประเภทการลงทุน (เลือกหรือพิมพ์เพิ่มได้)</label>
+              <input type="text" class="form-control" id="invType" name="invType" list="invTypeList" autocomplete="off" required placeholder="เลือก หรือ พิมพ์ประเภทการลงทุนได้เลย">
+              <datalist id="invTypeList"></datalist>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-4 mb-3">
+              <label class="form-label required">จำนวนหน่วยลงทุน</label>
+              <div class="input-group">
+                <button class="btn btn-outline-secondary" type="button" onclick="adjUnit(-1)"><i class="fa-solid fa-minus"></i></button>
+                <input type="text" class="form-control number-input text-center" id="unitAmount" name="unitAmount" required>
+                <button class="btn btn-outline-secondary" type="button" onclick="adjUnit(1)"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </div>
+            <div class="col-md-8 mb-3">
+              <label class="form-label required">หน่วยนับ (เลือกหรือพิมพ์เพิ่มได้)</label>
+              <input type="text" class="form-control" id="unitType" name="unitType" list="unitTypeList" autocomplete="off" required placeholder="เลือก หรือ พิมพ์เพิ่มได้เลย">
+              <datalist id="unitTypeList"></datalist>
+            </div>
+          </div>
+
+          <div class="p-3 bg-light border rounded mb-4">
+            <h6 class="mb-3 text-primary"><i class="fa-solid fa-calculator"></i> คำนวณมูลค่าการลงทุน (ระบบคำนวณอัตโนมัติ)</h6>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label required">มูลค่าเต็มตามสัญญา (บาท)</label>
+                <input type="text" class="form-control number-input calc-input" id="fullAmount" name="fullAmount" required>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label text-warning">ส่วนลดเงินลงทุน (บาท)</label>
+                <input type="text" class="form-control number-input calc-input" id="discount" name="discount">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label text-danger fw-bold required">ยอดเงินที่ลงทุนสุทธิ (บาท)</label>
+                <input type="text" class="form-control number-input calc-input fw-bold text-danger" id="netAmount" name="netAmount" required>
+              </div>
+            </div>
+            
+            <h6 class="mb-3 text-success mt-3"><i class="fa-solid fa-hand-holding-dollar"></i> ข้อมูลผลตอบแทนและสัญญา (คำนวณอัตโนมัติ)</h6>
+            <div class="row">
+              <div class="col-md-3 mb-3">
+                <label class="form-label text-success fw-bold" style="min-height: 48px; display: flex; align-items: flex-end;">ผลตอบแทน/เดือน (บาท)</label>
+                <input type="text" class="form-control number-input fw-bold text-success" id="monthlyReturn" name="monthlyReturn" placeholder="0">
+              </div>
+              <div class="col-md-3 mb-3">
+                <label class="form-label" style="min-height: 48px; display: flex; align-items: flex-end;">ผลตอบแทนเพิ่ม (%)</label>
+                <input type="text" class="form-control number-input text-info fw-bold" id="returnPercent" name="returnPercent" placeholder="%">
+              </div>
+              <div class="col-md-3 mb-3">
+                <label class="form-label" style="min-height: 48px; display: flex; align-items: flex-end;">รวมผลตอบแทนที่ได้จริง/เดือน (บาท)</label>
+                <input type="text" class="form-control number-input text-primary fw-bold" id="totalReturn" name="totalReturn" placeholder="0">
+              </div>
+              <div class="col-md-3 mb-3">
+                <label class="form-label" style="min-height: 48px; display: flex; align-items: flex-end;">อายุสัญญา (ปี)</label>
+                <input type="text" class="form-control number-input" id="contractYears" name="contractYears" placeholder="">
+              </div>
+            </div>
+            <small class="text-muted">* เมื่อกรอกข้อมูลในช่องใดช่องหนึ่ง ระบบจะพยายามคำนวณยอดที่เหลือให้อัตโนมัติ</small>
+          </div>
+
+          <div class="text-end">
+            <button type="button" class="btn btn-secondary me-2" onclick="resetForm()">ล้างข้อมูล</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmit"><i class="fa-solid fa-save"></i> บันทึกข้อมูล</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="section-table" class="content-section">
+      <div class="table-container">
+        <h4 class="mb-3">ตารางข้อมูลฐานข้อมูล</h4>
+        <div class="table-responsive">
+          <table id="dataTable" class="table table-striped table-hover align-middle" style="width:100%">
+            <thead class="table-dark">
+              <tr>
+                <th>แฟ้มที่</th>
+                <th>เลข ปชช.</th>
+                <th>ชื่อ-นามสกุล</th>
+                <th>บริษัทที่ทำสัญญา</th>
+                <th>ประเภทสัญญา</th>
+                <th>จำนวน</th>
+                <th>หน่วย</th>
+                <th>มูลค่าเต็ม</th>
+                <th>ส่วนลด</th>
+                <th>ยอดจ่ายจริงสุทธิ</th>
+                <th>ผลตอบแทน/เดือน</th>
+                <th>ผลตอบแทนเพิ่ม(%)</th> <th>รวมผลตอบแทน/เดือน</th> <th>อายุสัญญา(ปี)</th> <th>วันที่กรอก</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div> <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+
+  <script>
+    let myDataTable;
+    let myChart;
+    let allTableData = []; 
+
+    // ----- ฟังก์ชันตรวจสอบเลขบัตรประชาชนตามหลักสูตรคณิตศาสตร์ -----
+    function validateThaiID(id) {
+      if (id.length !== 13 || !/^\d{13}$/.test(id)) return false;
+      let sum = 0;
+      for (let i = 0; i < 12; i++) {
+        sum += parseFloat(id.charAt(i)) * (13 - i);
+      }
+      let checkDigit = (11 - (sum % 11)) % 10;
+      return checkDigit === parseFloat(id.charAt(12));
+    }
+
+    $(document).ready(function() {
+      // Binding Tabs 
+      $('.nav-link').on('click', function() {
+        let tabName = $(this).data('tab');
+        switchTab(tabName);
+      });
+
+      // ดึงข้อมูลเมื่อโหลดหน้าเว็บ
+      loadSettings();
+      loadTableData();
+      loadDashboardData();
+      setupCalculations();
+
+      // ----- Event ตรวจสอบเลขบัตรประชาชนแบบ Real-time -----
+      $('#idCard').on('input', function() {
+        let id = $(this).val();
+        id = id.replace(/\D/g, ''); // กรองเอาเฉพาะตัวเลข
+        $(this).val(id);
+
+        if (id.length === 13) {
+          if (validateThaiID(id)) {
+            $(this).removeClass('is-invalid').addClass('is-valid');
+            $('#idCardFeedback').text('');
+          } else {
+            $(this).removeClass('is-valid').addClass('is-invalid');
+            $('#idCardFeedback').text('เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์');
+          }
+        } else {
+          $(this).removeClass('is-valid is-invalid');
+          if (id.length > 0) {
+             $(this).addClass('is-invalid');
+             $('#idCardFeedback').text('กรุณากรอกให้ครบ 13 หลัก');
+          }
+        }
+      });
+      
+      let isShortcutJump = false; 
+
+      // ----- ตั้งค่าปฏิทิน Flatpickr (แสดงผล พ.ศ.) -----
+      flatpickr("#contractDate", {
+        locale: "th",
+        altInput: true,
+        altFormat: "j M Y", 
+        dateFormat: "Y-m-d", 
+        disableMobile: true, 
+        formatDate: function (date, format, locale) {
+          if (format === "j M Y") {
+            const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            const d = date.getDate();
+            const m = months[date.getMonth()];
+            const y = date.getFullYear() + 543; 
+            return `${d} ${m} ${y}`;
+          }
+          return flatpickr.formatDate(date, format);
+        },
+        onReady: function(selectedDates, dateStr, instance) {
+          if(instance.currentYearElement) instance.currentYearElement.value = instance.currentYear + 543;
+        },
+        onYearChange: function(selectedDates, dateStr, instance) {
+          if(instance.currentYearElement) instance.currentYearElement.value = instance.currentYear + 543;
+        },
+        onMonthChange: function(selectedDates, dateStr, instance) {
+          if(instance.currentYearElement) instance.currentYearElement.value = instance.currentYear + 543;
+        },
+        onOpen: function(selectedDates, dateStr, instance) {
+          if (selectedDates.length === 0 && !isShortcutJump) {
+            instance.jumpToDate(new Date(2020, 0, 1));
+          }
+          isShortcutJump = false;
+          if(instance.currentYearElement) instance.currentYearElement.value = instance.currentYear + 543;
+        }
+      });
+
+      // ฟังก์ชันปุ่มลัดข้ามปี 
+      window.jumpToYear = function(year) {
+        const fp = document.getElementById('contractDate')._flatpickr;
+        if (fp) {
+          isShortcutJump = true;
+          fp.jumpToDate(new Date(year, 0, 1));
+          fp.open();
+        }
+      };
+
+// ==========================================
+      // โค้ดที่เพิ่มใหม่: เมื่อเปลี่ยน "ประเภทการลงทุน" ให้เปลี่ยน "หน่วยนับ" อัตโนมัติ
+      // ==========================================
+      $('#invType').on('input change', function() {
+        let selectedInv = $(this).val().trim();
+        // ถ้าประเภทการลงทุนที่พิมพ์/เลือก มีระบุหน่วยนับไว้ในฐานข้อมูล Settings ให้ดึงมาใส่ทันที
+        if (investmentUnitMap && investmentUnitMap[selectedInv]) {
+          $('#unitType').val(investmentUnitMap[selectedInv]);
+        }
+      });
+
+      // จัดการเมื่อกดปุ่มบันทึก
+      $('#dataForm').on('submit', function(e) {
+        e.preventDefault();
+        const idCard = $('#idCard').val();
+        
+        if(!validateThaiID(idCard)) {
+          Swal.fire('ข้อผิดพลาด', 'เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์ กรุณาตรวจสอบอีกครั้ง', 'error');
+          $('#idCard').focus();
+          return;
+        }
+        saveData();
+      });
+    });
+
+    // ----- UI Toggling -----
+    function switchTab(tabName) {
+      $('.nav-link').removeClass('active');
+      $(`[data-tab="${tabName}"]`).addClass('active');
+      
+      $('.content-section').removeClass('active');
+      $('#section-' + tabName).addClass('active');
+
+      if(tabName === 'table' && myDataTable) {
+         myDataTable.columns.adjust();
+      }
+    }
+
+    // ----- ระบบฟอร์แมตตัวเลขใส่ลูกน้ำ (,) -----
+    function addCommas(str) {
+      if(!str && str !== 0) return '';
+      let raw = str.toString().replace(/,/g, '').replace(/[^0-9.]/g, '');
+      let parts = raw.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); 
+      return parts.slice(0, 2).join('.');
+    }
+
+    $(document).on('input', '.number-input', function() {
+      let start = this.selectionStart;
+      let oldLen = this.value.length;
+      
+      this.value = addCommas(this.value);
+      
+      let newLen = this.value.length;
+      let newPos = start + (newLen - oldLen);
+      if(this.setSelectionRange) {
+        this.setSelectionRange(newPos, newPos);
+      }
+    });
+
+    function adjUnit(val) {
+      let currentStr = $('#unitAmount').val() || "0";
+      let current = parseFloat(currentStr.replace(/,/g, '')) || 0;
+      current += val;
+      if(current < 0) current = 0; 
+      $('#unitAmount').val(addCommas(current.toString())).trigger('input');
+    }
+
+    // ----- ระบบคำนวณเงิน -----
+    function setupCalculations() {
+      const $full = $('#fullAmount');
+      const $discount = $('#discount');
+      const $net = $('#netAmount');
+      
+      const $percent = $('#returnPercent');
+      const $total = $('#totalReturn');
+      const $monthly = $('#monthlyReturn');
+
+      $discount.on('input', function() {
+        let f = parseFloat($full.val().replace(/,/g, '')) || 0;
+        let d = parseFloat($discount.val().replace(/,/g, '')) || 0;
+        if($full.val() !== '') {
+          $net.val(addCommas((f - d).toFixed(2))).trigger('change');
+        }
+      });
+
+      $net.on('input', function() {
+        let f = parseFloat($full.val().replace(/,/g, '')) || 0;
+        let n = parseFloat($net.val().replace(/,/g, '')) || 0;
+        if($full.val() !== '') {
+          $discount.val(addCommas((f - n).toFixed(2)));
+        }
+        $net.trigger('change');
+      });
+
+      $full.on('input', function() {
+        let f = parseFloat($full.val().replace(/,/g, '')) || 0;
+        let d = parseFloat($discount.val().replace(/,/g, '')) || 0;
+        if($discount.val() !== '') {
+           $net.val(addCommas((f - d).toFixed(2))).trigger('change');
+        }
+      });
+
+      // -----------------------------------------
+      // ระบบคำนวณผลตอบแทนเชื่อมโยง
+      // -----------------------------------------
+      $total.on('input', function() {
+        let total = parseFloat($total.val().replace(/,/g, '')) || 0;
+        let mo = parseFloat($monthly.val().replace(/,/g, '')) || 0;
+        let pct = parseFloat($percent.val().replace(/,/g, '')) || 0;
+        
+        if ($percent.val() !== '') {
+           let calculatedMo = total / (1 + (pct / 100));
+           $monthly.val(addCommas(calculatedMo.toFixed(2)));
+        } 
+        else if ($monthly.val() !== '' && mo > 0) {
+           let calculatedPct = ((total / mo) - 1) * 100;
+           $percent.val(addCommas(calculatedPct.toFixed(2)));
+        }
+      });
+
+      $percent.on('input', function() {
+        let pct = parseFloat($percent.val().replace(/,/g, '')) || 0;
+        let total = parseFloat($total.val().replace(/,/g, '')) || 0;
+        let mo = parseFloat($monthly.val().replace(/,/g, '')) || 0;
+        
+        if ($total.val() !== '') {
+            let calculatedMo = total / (1 + (pct / 100));
+            $monthly.val(addCommas(calculatedMo.toFixed(2)));
+        } 
+        else if ($monthly.val() !== '') {
+            let calculatedTotal = mo * (1 + (pct / 100));
+            $total.val(addCommas(calculatedTotal.toFixed(2)));
+        }
+      });
+
+      $monthly.on('input', function() {
+        let mo = parseFloat($monthly.val().replace(/,/g, '')) || 0;
+        let pct = parseFloat($percent.val().replace(/,/g, '')) || 0;
+        let total = parseFloat($total.val().replace(/,/g, '')) || 0;
+        
+        if ($percent.val() !== '') {
+            let calculatedTotal = mo * (1 + (pct / 100));
+            $total.val(addCommas(calculatedTotal.toFixed(2)));
+        } 
+        else if ($total.val() !== '' && mo > 0) {
+            let calculatedPct = ((total / mo) - 1) * 100;
+            $percent.val(addCommas(calculatedPct.toFixed(2)));
+        }
+      });
+    }
+
+   // ----- โหลดตัวเลือกจาก Settings Sheet ลง Datalist -----
+    function loadSettings() {
+      google.script.run.withSuccessHandler(function(res) {
+        console.log("โหลดข้อมูล Settings สำเร็จ:", res);
+        investmentUnitMap = res.unitMapping || {}; // บันทึกคู่จับคู่ไว้ที่หน้าเว็บ
+        
+        let invOptions = '';
+        res.invTypes.forEach(val => invOptions += `<option value="${val}">`);
+        $('#invTypeList').html(invOptions);
+
+        let unitOptions = '';
+        res.unitTypes.forEach(val => unitOptions += `<option value="${val}">`);
+        $('#unitTypeList').html(unitOptions);
+        
+        let companyOptions = '';
+        res.companyTypes.forEach(val => companyOptions += `<option value="${val}">`);
+        $('#companyList').html(companyOptions);
+      }).getSettings();
+    }
+
+// ----- Load & Render Data Table -----
+    function loadTableData() {
+      google.script.run.withSuccessHandler(function(data) {
+        allTableData = data; 
+        if(myDataTable) {
+          myDataTable.destroy();
+        }
+        
+        let tbody = '';
+        data.forEach(function(row, index) {
+          if(!row[0]) return; 
+          
+          let stampObj = new Date(row[17]);
+          let stampStr = isNaN(stampObj) ? row[17] : stampObj.toLocaleDateString('th-TH');
+
+          let fmtFull = parseFloat(row[10]||0).toLocaleString('en-US', {minimumFractionDigits: 2});
+          let fmtDisc = parseFloat(row[11]||0).toLocaleString('en-US', {minimumFractionDigits: 2});
+          let fmtNet = parseFloat(row[12]||0).toLocaleString('en-US', {minimumFractionDigits: 2});
+          
+          // เปลี่ยน Index ให้ตรงกับ Sheet ใหม่
+          let fmtMonthly = parseFloat(row[13]||0).toLocaleString('en-US', {minimumFractionDigits: 2});
+          let fmtPct = row[14] ? parseFloat(row[14]).toLocaleString('en-US', {minimumFractionDigits: 2}) + '%' : '-';
+          let fmtTotal = parseFloat(row[15]||0).toLocaleString('en-US', {minimumFractionDigits: 2});
+          let fmtYears = row[16] || '-';
+
+          let fmtUnitAmount = parseFloat(row[8]||0).toLocaleString('en-US');
+
+          tbody += `<tr>
+            <td>${row[1]}</td>
+            <td>${row[2]}</td>
+            <td>${row[3]}</td>
+            <td class="small text-muted">${row[6]}</td> 
+            <td>${row[7]}</td>
+            <td>${fmtUnitAmount}</td>
+            <td>${row[9]}</td>
+            <td>${fmtFull}</td>
+            <td>${fmtDisc}</td>
+            <td class="text-danger fw-bold">${fmtNet}</td>
+            <td class="text-success">${fmtMonthly}</td>
+            <td class="text-info">${fmtPct}</td>
+            <td class="text-primary fw-bold">${fmtTotal}</td>
+            <td>${fmtYears}</td>
+            <td class="small text-muted">${stampStr}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-warning mb-1" onclick="editRecord(${index})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn btn-sm btn-outline-danger mb-1" onclick="deleteRecord('${row[0]}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>`;
+        });
+        
+        $('#dataTable tbody').html(tbody);
+        myDataTable = $('#dataTable').DataTable({
+          language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/th.json' },
+          order: [[14, 'desc']], 
+          pageLength: 25
+        });
+      }).getData();
+    }
+
+    // ----- บันทึกข้อมูล -----
+    function saveData() {
+      Swal.fire({
+        title: 'กำลังบันทึกข้อมูล...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      const formArray = $('#dataForm').serializeArray();
+      let formObj = {};
+      
+      formArray.forEach(item => {
+        if(['unitAmount', 'fullAmount', 'discount', 'netAmount', 'monthlyReturn', 'contractYears', 'returnPercent', 'totalReturn'].includes(item.name)) {
+          formObj[item.name] = item.value.replace(/,/g, '');
+        } else {
+          formObj[item.name] = item.value;
+        }
+      });
+
+      google.script.run.withSuccessHandler(function(res) {
+        if(res.status === 'success') {
+          Swal.fire('สำเร็จ', res.message, 'success');
+          resetForm();
+          loadSettings(); 
+          loadTableData(); 
+          loadDashboardData(); 
+          switchTab('table');
+        } else {
+          Swal.fire('เกิดข้อผิดพลาด', res.message, 'error');
+        }
+      }).withFailureHandler(function(err) {
+        Swal.fire('เกิดข้อผิดพลาด', err.message, 'error');
+      }).saveData(formObj);
+    }
+
+// ----- ดึงข้อมูลเพื่อแก้ไข -----
+    function editRecord(index) {
+      let rowData = allTableData[index]; 
+      $('#formTitle').html('<i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูลสัญญา');
+      $('#recordId').val(rowData[0]);
+      $('#fileNo').val(rowData[1]);
+      $('#idCard').val(rowData[2]);
+      $('#fullName').val(rowData[3]);
+      $('#phone').val(rowData[4]); 
+      
+      let d = new Date(rowData[5]);
+      if(!isNaN(d)) {
+        document.getElementById('contractDate')._flatpickr.setDate(d);
+      } else {
+        document.getElementById('contractDate')._flatpickr.setDate(rowData[5]);
+      }
+      
+      $('#companyName').val(rowData[6]); 
+      $('#invType').val(rowData[7]);
+      $('#unitAmount').val(addCommas(rowData[8]));
+      $('#unitType').val(rowData[9]);
+      
+      $('#fullAmount').val(addCommas(parseFloat(rowData[10]||0).toFixed(2)));
+      $('#discount').val(addCommas(parseFloat(rowData[11]||0).toFixed(2)));
+      $('#netAmount').val(addCommas(parseFloat(rowData[12]||0).toFixed(2)));
+      
+      // เปลี่ยน Index ให้ตรงกับ Sheet ใหม่
+      $('#monthlyReturn').val(addCommas(parseFloat(rowData[13]||0).toFixed(2)));
+      $('#returnPercent').val(addCommas(parseFloat(rowData[14]||0).toFixed(2)));
+      $('#totalReturn').val(addCommas(parseFloat(rowData[15]||0).toFixed(2)));
+      $('#contractYears').val(addCommas(rowData[16]));
+      
+      $('#idCard').trigger('input');
+
+      switchTab('form');
+      window.scrollTo(0,0);
+    }
+
+    // ----- ลบข้อมูล -----
+    function deleteRecord(id) {
+      Swal.fire({
+        title: 'ยืนยันการลบข้อมูล?',
+        text: "ข้อมูลนี้จะถูกลบออกจากฐานข้อมูลและไม่สามารถกู้คืนได้!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'ยืนยันการลบ',
+        cancelButtonText: 'ยกเลิก'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          Swal.fire({ title: 'กำลังลบข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+          
+          google.script.run.withSuccessHandler(function(res) {
+            if(res.status === 'success') {
+              Swal.fire('ลบสำเร็จ', res.message, 'success');
+              loadTableData();
+              loadDashboardData();
+            } else {
+              Swal.fire('เกิดข้อผิดพลาด', res.message, 'error');
+            }
+          }).deleteData(id);
+        }
+      });
+    }
+
+    // ----- เคลียร์ฟอร์ม -----
+    function resetForm() {
+      $('#dataForm')[0].reset();
+      $('#recordId').val('');
+      $('#idCard').removeClass('is-valid is-invalid'); 
+      $('#idCardFeedback').text('กรุณากรอกเฉพาะตัวเลข 13 หลัก');
+      $('#formTitle').html('<i class="fa-solid fa-plus"></i> เพิ่มข้อมูลผู้เสียหาย/สัญญา');
+      
+      const fp = document.getElementById('contractDate')._flatpickr;
+      if (fp) fp.clear();
+    }
+
+    // ----- Load Dashboard -----
+    function loadDashboardData() {
+      google.script.run.withSuccessHandler(function(res) {
+        
+        $('#dash-victims').text(res.totalVictims.toLocaleString('th-TH'));
+        $('#dash-net-amount').text(res.totalNetAmount.toLocaleString('en-US', {minimumFractionDigits: 2}));
+
+        let tbody = '';
+        let labels = [];
+        let chartData = [];
+        let bgColors = [
+            'rgba(13, 110, 253, 0.7)', 'rgba(25, 135, 84, 0.7)', 'rgba(220, 53, 69, 0.7)', 
+            'rgba(255, 193, 7, 0.7)', 'rgba(13, 202, 240, 0.7)', 'rgba(111, 66, 193, 0.7)'
+        ];
+
+        let index = 0;
+        for (let type in res.summaryByType) {
+          let item = res.summaryByType[type];
+          let unitLabel = item.unitText ? ' ' + item.unitText : '';
+          
+          tbody += `<tr>
+            <td>${type}</td>
+            <td class="text-end">${item.count.toLocaleString('th-TH')}</td>
+            <td class="text-end">${item.units.toLocaleString('en-US')}${unitLabel}</td>
+            <td class="text-end fw-bold">${item.sum.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+          </tr>`;
+          
+          labels.push(type);
+          chartData.push(item.sum);
+          index++;
+        }
+        
+        if (tbody === '') tbody = '<tr><td colspan="4" class="text-center text-muted">ยังไม่มีข้อมูล</td></tr>';
+        $('#dash-table-body').html(tbody);
+
+        // ทำลายกราฟเก่าก่อนสร้างใหม่
+        if(myChart) myChart.destroy();
+        const ctx = document.getElementById('invChart').getContext('2d');
+
+        // 🛠️ สร้างสคริปต์ปลั๊กอินสำหรับวาดเส้นและตัวเลขเปอร์เซ็นต์ตามเงื่อนไขความกว้างของแถว
+        const doughnutLabelsLine = {
+          id: 'doughnutLabelsLine',
+          afterDraw(chart) {
+            const { ctx } = chart;
+            chart.data.datasets.forEach((dataset, i) => {
+              const meta = chart.getDatasetMeta(i);
+              meta.data.forEach((datapoint, index) => {
+                const { x, y, startAngle, endAngle, outerRadius, innerRadius } = datapoint;
+                
+                // ข้ามการคำนวณถ้าผู้ใช้งานกดซ่อนประเภทสัญญานั้นๆ ออกจาก Legend
+                if (chart.getDataVisibility && !chart.getDataVisibility(index)) return;
+
+                const midAngle = startAngle + (endAngle - startAngle) / 2;
+                const value = dataset.data[index];
+                const total = dataset.data.reduce((a, b) => a + b, 0);
+                if (total === 0 || value === 0) return; // ไม่วาดถ้าไม่มีมูลค่าเงิน
+                
+                const percentage = (value / total) * 100;
+                
+                // 🔹 เงื่อนไขที่ 1: ถ้าแถบเล็กเกินไป (น้อยกว่า 10%) ให้ลากเส้นโยงออกมาข้างนอก
+                if (percentage < 10) {
+                  const startLineX = x + Math.cos(midAngle) * outerRadius;
+                  const startLineY = y + Math.sin(midAngle) * outerRadius;
+                  
+                  const edgeX = x + Math.cos(midAngle) * (outerRadius + 15);
+                  const edgeY = y + Math.sin(midAngle) * (outerRadius + 15);
+                  
+                  // วาดเส้นเฉียงดึงออกจากขอบวงกลม
+                  ctx.beginPath();
+                  ctx.moveTo(startLineX, startLineY);
+                  ctx.lineTo(edgeX, edgeY);
+                  ctx.strokeStyle = datapoint.options.backgroundColor;
+                  ctx.lineWidth = 1.5;
+                  ctx.stroke();
+                  
+                  // วาดเส้นตรงแนวนอนเพื่อรองรับตัวเลข (หันซ้ายหรือขวาตามองศาofจุด)
+                  const isRight = Math.cos(midAngle) >= 0;
+                  const lineLength = isRight ? 12 : -12;
+                  
+                  ctx.beginPath();
+                  ctx.moveTo(edgeX, edgeY);
+                  ctx.lineTo(edgeX + lineLength, edgeY);
+                  ctx.stroke();
+                  
+                  // พิมพ์ตัวเลข % กำกับปลายเส้น
+                  ctx.font = 'bold 11px Sarabun';
+                  ctx.fillStyle = '#475569'; 
+                  ctx.textAlign = isRight ? 'left' : 'right';
+                  ctx.textBaseline = 'middle';
+                  
+                  const textX = edgeX + lineLength + (isRight ? 4 : -4);
+                  ctx.fillText(percentage.toFixed(1) + '%', textX, edgeY);
+                } 
+                // 🔹 เงื่อนไขที่ 2: ถ้าแถบใหญ่พอ (ตั้งแต่ 10% ขึ้นไป) ให้ฝังตัวเลขลงบนแถววงกลมเลย
+                else {
+                  // แก้ไขจุดนี้เรียบร้อย จาก const劇 เป็น const ธรรมดาเพื่อลบข้อผิดพลาด
+                  const midRadius = innerRadius + (outerRadius - innerRadius) / 2; 
+                  const textX = x + Math.cos(midAngle) * midRadius;
+                  const textY = y + Math.sin(midAngle) * midRadius;
+                  
+                  ctx.font = 'bold 12px Sarabun';
+                  ctx.fillStyle = '#ffffff'; 
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'middle';
+                  ctx.fillText(percentage.toFixed(1) + '%', textX, textY);
+                }
+              });
+            });
+          }
+        };
+
+        // เรียกใช้งานคำสั่งสร้างกราฟพร้อมผูกปลั๊กอิน
+        myChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: chartData,
+              backgroundColor: bgColors,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+              padding: { top: 20, bottom: 20, left: 20, right: 20 }
+            },
+            plugins: {
+              legend: { position: 'bottom' },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    let val = context.raw.toLocaleString('en-US', {minimumFractionDigits: 2});
+                    return context.label + ': ' + val + ' บาท';
+                  }
+                }
+              }
+            }
+          },
+          plugins: [doughnutLabelsLine] 
+        });
+        
+      }).getDashboardData();
+    }
+  </script>
+</body>
+</html>
