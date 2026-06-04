@@ -25,7 +25,7 @@ function getSettings() {
     if (inv) {
       invTypes.push(inv);
       if (unit) {
-        unitMapping[inv] = unit; // ทำการจับคู่ในระบบหลังบ้าน
+        unitMapping[inv] = unit; // จับคู่ข้อมูล
       }
     }
     if (unit) unitTypes.push(unit);
@@ -40,7 +40,7 @@ function getSettings() {
   };
 }
 
-// บันทึก หรือ อัปเดตข้อมูล
+// บันทึก หรือ อัปเดตข้อมูล (รองรับ 22 คอลัมน์เพื่อความปลอดภัยสูงสุดในการทำสำนวนคดี)
 function saveData(formObj) {
   const lock = LockService.getScriptLock();
   try {
@@ -54,26 +54,30 @@ function saveData(formObj) {
     let id = isUpdate ? formObj.id : Utilities.getUuid();
     let timestamp = new Date();
     
-// โครงสร้างข้อมูล 18 คอลัมน์ (ดัชนี 0-17)
+    // โครงสร้างข้อมูล 22 คอลัมน์ (ดัชนี 0-21) บันทึกลงคอลัมน์ A ถึง V ใน Google Sheets
     let rowData = [
-      id,                     // 0: A
-      formObj.fileNo,         // 1: B
-      formObj.idCard,         // 2: C
-      formObj.fullName,       // 3: D
-      formObj.phone,          // 4: E
-      formObj.contractDate,   // 5: F
-      formObj.companyName,    // 6: G
-      formObj.invType,        // 7: H
-      formObj.unitAmount,     // 8: I
-      formObj.unitType,       // 9: J
-      formObj.fullAmount,     // 10: K
-      formObj.discount,       // 11: L
-      formObj.netAmount,      // 12: M
-      formObj.monthlyReturn,  // 13: N
-      formObj.returnPercent,  // 14: O (ตำแหน่งใหม่)
-      formObj.totalReturn,    // 15: P (ตำแหน่งใหม่)
-      formObj.contractYears,  // 16: Q (ตำแหน่งใหม่)
-      timestamp               // 17: R
+      id,                     // 0: A - ID
+      formObj.fileNo,         // 1: B - แฟ้มที่
+      formObj.idCard,         // 2: C - เลข ปชช.
+      formObj.fullName,       // 3: D - ชื่อผู้เสียหาย
+      formObj.phone,          // 4: E - ผู้รับมอบอำนาจ
+      formObj.contractDate,   // 5: F - วันที่ทำสัญญา
+      formObj.paymentDate,    // 6: G - วันที่โอนเงิน/จ่ายเงิน (ตามสลิป) -> เก็บเป็นข้อมูล JSON string ของรายการแบ่งชำระเงินงวดทั้งหมด
+      formObj.companyName,    // 7: H - บริษัทที่ทำสัญญา
+      formObj.invType,        // 8: I - ประเภทการลงทุน
+      formObj.unitAmount,     // 9: J - จำนวน
+      formObj.unitType,       // 10: K - หน่วยนับ
+      formObj.fullAmount,     // 11: L - มูลค่าเต็มตามสัญญา
+      formObj.discount,       // 12: M - ส่วนลดเงินลงทุน
+      formObj.netAmount,      // 13: N - ยอดเงินลงทุนสุทธิ
+      formObj.monthlyReturn,  // 14: O - ผลตอบแทน/เดือน
+      formObj.returnPercent,  // 15: P - ผลตอบแทนเพิ่ม (%)
+      formObj.totalReturn,    // 16: Q - รวมผลตอบแทนที่ได้จริง/เดือน
+      formObj.contractYears,  // 17: R - อายุสัญญา (ปี)
+      formObj.actualInvest,   // 18: S - เงินลงทุนที่จ่ายจริงรวมทั้งหมด (ตามบัญชีทรัพย์) (บาท)
+      formObj.actualReturn,   // 19: T - ผลตอบแทนที่ได้รับคืนจริงรวมทั้งหมด (ตามบัญชีทรัพย์) (บาท)
+      formObj.netDamage,      // 20: U - มูลค่าความเสียหายสุทธิรายบุคคล (ตามบัญชีทรัพย์) (บาท)
+      timestamp               // 21: V - วันที่กรอกข้อมูล (Timestamp)
     ];
     
     if (isUpdate) {
@@ -86,7 +90,7 @@ function saveData(formObj) {
         }
       }
       if (rowIndex > -1) {
-        rowData[17] = data[rowIndex - 1][17]; // รักษา Timestamp เดิม
+        rowData[21] = data[rowIndex - 1][21]; // รักษา Timestamp เดิมไว้ที่ Index 21 (Col V)
         dataSheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
       } else {
         throw new Error("ไม่พบข้อมูลที่ต้องการแก้ไข");
@@ -105,7 +109,7 @@ function saveData(formObj) {
   }
 }
 
-// เช็คและเพิ่ม Dropdown ใหม่
+// เช็คและเพิ่ม Dropdown ใหม่ในชีต Settings
 function updateSettingsIfNew(sheet, newInvType, newUnitType, newCompany) {
   const data = sheet.getDataRange().getValues();
   let existingInv = [];
@@ -125,17 +129,15 @@ function updateSettingsIfNew(sheet, newInvType, newUnitType, newCompany) {
   if (newInvType && !existingInv.includes(newInvType.trim())) {
     sheet.getRange(nextInvRow, 1).setValue(newInvType.trim());
   }
-  
   if (newUnitType && !existingUnit.includes(newUnitType.trim())) {
     sheet.getRange(nextUnitRow, 2).setValue(newUnitType.trim());
   }
-  
   if (newCompany && !existingCompany.includes(newCompany.trim())) {
     sheet.getRange(nextCompanyRow, 3).setValue(newCompany.trim());
   }
 }
 
-// ดึงข้อมูลทั้งหมดไปแสดงในตาราง
+// ดึงข้อมูลทั้งหมดในชีต Data ไปแสดงในตารางหน้าเว็บ
 function getData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Data');
@@ -144,7 +146,7 @@ function getData() {
   return data;
 }
 
-// ลบข้อมูล
+// ลบข้อมูลรายสัญญา
 function deleteData(id) {
   const lock = LockService.getScriptLock();
   try {
@@ -167,7 +169,7 @@ function deleteData(id) {
   }
 }
 
-// ดึงข้อมูลสรุปสำหรับ Dashboard โดยดึงคำระบุหน่วยนับไปด้วย
+// คำนวณสรุปแดชบอร์ด หาผลตอบแทนคืนจริง และมูลค่าความเสียหายสุทธิอย่างเป็นระบบสอบสวน
 function getDashboardData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Data');
@@ -179,21 +181,36 @@ function getDashboardData() {
   let uniqueVictims = new Set();
   let typeSummary = {};
   
+  // โครงสร้างสำหรับดักจับยอดเงินคืนและยอดเงินลงทุนรายบุคคล เพื่อวิเคราะห์ไม่ให้บวกซ้ำซ้อน
+  let victimActualReturns = {};
+  let victimActualInvests = {};
+  
   if (data.length > 1) {
     for (let i = 1; i < data.length; i++) {
       let row = data[i];
-      if (!row[0]) continue; // ข้ามแถวที่ไม่มี ID
+      if (!row[0]) continue;
       
-      let idCard = row[2]; // C
-      let invType = row[7] || 'ไม่ระบุ'; // H
-      let unitAmount = parseFloat(row[8]) || 0; // I
-      let unitText = row[9] || ''; // J: ดึงหน่วยนับ (เช่น ตู้, ลิตร)
-      let netAmount = parseFloat(row[12]) || 0; // M
+      let idCard = row[2] ? row[2].toString().trim() : '';
+      let invType = row[8] || 'ไม่ระบุ'; // ดัชนีเปลี่ยนเป็น 8 จากคอลัมน์ประเภทการลงทุน
+      let unitAmount = parseFloat(row[9]) || 0; // ดัชนีเปลี่ยนเป็น 9
+      let unitText = row[10] || ''; // ดัชนีเปลี่ยนเป็น 10
+      let netAmount = parseFloat(row[13]) || 0; // ดัชนีเปลี่ยนเป็น 13 จากยอดเงินสุทธิ
+      let actualInvest = parseFloat(row[18]) || 0; // Col S: Index 18 ยอดเงินลงทุนจริง
+      let actualReturn = parseFloat(row[19]) || 0; // Col T: Index 19 ยอดเงินคืนจริง
       
       totalContracts++;
       totalNetAmount += netAmount;
       totalUnits += unitAmount;
-      if (idCard) uniqueVictims.add(idCard.toString().trim());
+      if (idCard) {
+        uniqueVictims.add(idCard);
+        // บันทึกค่าเงินสะสมแบบกลุ่มรายบุคคล ป้องกันการบวกเบิ้ลสะสมของคนที่มีหลายสัญญา
+        if (!victimActualReturns[idCard] || actualReturn > victimActualReturns[idCard]) {
+          victimActualReturns[idCard] = actualReturn;
+        }
+        if (!victimActualInvests[idCard] || actualInvest > victimActualInvests[idCard]) {
+          victimActualInvests[idCard] = actualInvest;
+        }
+      }
       
       if (!typeSummary[invType]) {
         typeSummary[invType] = { count: 0, units: 0, sum: 0, unitText: '' };
@@ -201,15 +218,32 @@ function getDashboardData() {
       typeSummary[invType].count += 1;
       typeSummary[invType].units += unitAmount;
       typeSummary[invType].sum += netAmount;
-      typeSummary[invType].unitText = unitText; // บันทึกข้อความหน่วยนับไว้ใน Object
+      typeSummary[invType].unitText = unitText;
     }
   }
+  
+  // รวมยอดเงินจริงสะสมของทุกคนแบบไม่ซ้ำตัวบุคคล
+  let totalActualReturnSum = 0;
+  for (let id in victimActualReturns) {
+    totalActualReturnSum += victimActualReturns[id];
+  }
+  
+  let totalActualInvestSum = 0;
+  for (let id in victimActualInvests) {
+    totalActualInvestSum += victimActualInvests[id];
+  }
+  
+  // ความเสียหายสุทธิรวมคดี = เงินลงทุนทั้งหมดลบด้วยยอดคืนเงินทั้งหมดตาม Statement
+  let totalNetDamage = totalActualInvestSum - totalActualReturnSum;
   
   return {
     totalVictims: uniqueVictims.size,
     totalContracts: totalContracts,
     totalNetAmount: totalNetAmount,
     totalUnits: totalUnits,
+    totalActualInvest: totalActualInvestSum,
+    totalActualReturn: totalActualReturnSum,
+    totalNetDamage: totalNetDamage,
     summaryByType: typeSummary
   };
 }
