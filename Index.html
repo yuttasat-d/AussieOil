@@ -9,6 +9,8 @@
   <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <!-- TomSelect CSS สำหรับ Dropdown อัจฉริยะ -->
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
   
   <style>
     :root {
@@ -35,12 +37,15 @@
     .table-container { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
     .table thead th { background-color: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: 600; white-space: nowrap; }
     
-    .form-control, .form-select { border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px 15px; }
-    .form-control:focus, .form-select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 0.25rem rgba(74, 118, 168, 0.2); }
+    .form-control, .form-select, .ts-control { border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px 15px; }
+    .form-control:focus, .form-select:focus, .ts-control.focus { border-color: var(--primary-color); box-shadow: 0 0 0 0.25rem rgba(74, 118, 168, 0.2); }
     .btn { border-radius: 8px; font-weight: 500; padding: 8px 20px; }
     
     .required::after { content: " *"; color: #ef4444; }
     .chart-container { position: relative; height: 350px; width: 100%; }
+    
+    /* ซ่อนลูกศรใน input number */
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   </style>
 </head>
 <body>
@@ -155,8 +160,8 @@
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label required">เลขประจำตัวประชาชน (13 หลัก)</label>
-              <input type="text" class="form-control" id="idCard" name="idCard" required maxlength="13" placeholder="xxxxxxxxxxxxx">
-              <div class="invalid-feedback" id="idCardFeedback">กรุณากรอกเฉพาะตัวเลข 13 หลัก</div>
+              <input type="text" class="form-control" id="idCard" name="idCard" required placeholder="x-xxxx-xxxxx-xx-x">
+              <div class="invalid-feedback" id="idCardFeedback">กรุณากรอกให้ครบ 13 หลัก</div>
               <div class="valid-feedback"><i class="fa-solid fa-check-circle"></i> เลขประจำตัวประชาชนถูกต้อง</div>
             </div>
           </div>
@@ -187,16 +192,14 @@
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label required">ทำสัญญากับบริษัท</label>
-              <input type="text" class="form-control" id="companyName" name="companyName" list="companyList" autocomplete="off" required placeholder="เลือก หรือ พิมพ์ชื่อบริษัทเพิ่มได้เลย">
-              <datalist id="companyList"></datalist>
+              <select id="companyName" name="companyName" required placeholder="เลือก หรือ พิมพ์ชื่อบริษัทเพิ่มได้เลย..."></select>
             </div>
           </div>
           
           <div class="row mb-3">
             <div class="col-md-12 mb-3">
               <label class="form-label required">ประเภทการลงทุน</label>
-              <input type="text" class="form-control" id="invType" name="invType" list="invTypeList" autocomplete="off" required placeholder="เลือก หรือ พิมพ์ประเภทการลงทุนได้เลย">
-              <datalist id="invTypeList"></datalist>
+              <select id="invType" name="invType" required placeholder="เลือก หรือ พิมพ์ประเภทการลงทุนเพิ่มได้เลย..."></select>
             </div>
           </div>
 
@@ -211,8 +214,7 @@
             </div>
             <div class="col-md-8 mb-3">
               <label class="form-label required">หน่วยนับ</label>
-              <input type="text" class="form-control" id="unitType" name="unitType" list="unitTypeList" autocomplete="off" required placeholder="เลือก หรือ พิมพ์หน่วยนับเพิ่มได้เลย">
-              <datalist id="unitTypeList"></datalist>
+              <select id="unitType" name="unitType" required placeholder="เลือก หรือ พิมพ์หน่วยนับเพิ่มได้เลย..."></select>
             </div>
           </div>
 
@@ -221,7 +223,7 @@
           <div class="card p-3 bg-white border rounded mb-4 shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
               <h6 class="text-primary m-0 fw-bold"><i class="fa-solid fa-list-check me-2"></i> รายการโอนเงิน/แบ่งชำระ (เฉพาะสัญญาฉบับนี้)</h6>
-              <button type="button" class="btn btn-sm btn-outline-success py-1 px-3" onclick="addPaymentRow()"><i class="fa-solid fa-plus me-1"></i> เพิ่มงวดการโอนเงิน</button>
+              <button type="button" class="btn btn-sm btn-outline-success py-1 px-3" onclick="addPaymentRow()"><i class="fa-solid fa-plus me-1"></i> เพิ่มงวด</button>
             </div>
             <div id="paymentRowsContainer"></div>
           </div>
@@ -264,30 +266,32 @@
               </div>
             </div>
 
-            <!-- ส่วนของข้อมูล บัญชีทรัพย์สินรายบุคคล (ปลดล็อกให้เป็นอิสระ) -->
+            <!-- ส่วนของข้อมูล บัญชีทรัพย์สินรายบุคคล -->
             <div class="row border-top pt-3 mt-2 bg-white rounded p-2 shadow-sm">
               <div class="col-md-4 mb-3">
-                <label class="form-label text-danger fw-bold"><i class="fa-solid fa-money-bill-transfer"></i> เงินลงทุนที่จ่ายจริงรวมทั้งหมด (บาท)</label>
-                <!-- นำ readonly ออก เพื่อให้แก้ไขได้อย่างอิสระ ไม่ผูกกับตารางด้านบน -->
+                <label class="form-label text-danger fw-bold"><i class="fa-solid fa-money-bill-transfer"></i> เงินลงทุนที่จ่ายจริงรวม (บาท)</label>
                 <input type="text" class="form-control number-input fw-bold border-danger text-danger bg-light" id="actualInvest" name="actualInvest" placeholder="0.00" value="0">
-                <small class="text-muted text-wrap d-block mt-1">* กรอกยอดเงินลงทุนรวมของบุคคลนี้ (ดึงอัตโนมัติหากเคยมีประวัติ)</small>
+                <small class="text-muted text-wrap d-block mt-1">* กรอกยอดเงินลงทุนรวมของบุคคลนี้ (ดึงออโต้หากมีประวัติ)</small>
               </div>
               <div class="col-md-4 mb-3">
-                <label class="form-label text-success fw-bold"><i class="fa-solid fa-building-columns"></i> ผลตอบแทนที่คืนรวมทั้งหมด (บาท)</label>
+                <label class="form-label text-success fw-bold"><i class="fa-solid fa-building-columns"></i> ผลตอบแทนที่คืนรวม (บาท)</label>
                 <input type="text" class="form-control number-input fw-bold border-success text-success bg-light" id="actualReturn" name="actualReturn" placeholder="0.00" value="0">
-                <small class="text-muted text-wrap d-block mt-1">* ยอดรวมที่ได้ปันผลคืนจริงตาม Statement ของคนนี้</small>
+                <small class="text-muted text-wrap d-block mt-1">* ยอดรวมที่ได้ปันผลคืนจริงตาม Statement</small>
               </div>
               <div class="col-md-4 mb-3">
-                <label class="form-label text-dark fw-bold"><i class="fa-solid fa-scale-unbalanced-flip"></i> มูลค่าความเสียหายสุทธิรายบุคคล (บาท)</label>
+                <label class="form-label text-dark fw-bold"><i class="fa-solid fa-scale-unbalanced-flip"></i> มูลค่าความเสียหายสุทธิ (บาท)</label>
                 <input type="text" class="form-control number-input fw-bold bg-secondary-subtle" id="netDamage" name="netDamage" placeholder="0.00" value="0" readonly>
-                <small class="text-muted text-wrap d-block mt-1">* ยอดเงินลงทุนจริงลบยอดปันผลคืนจริง (คำนวณให้ออโต้)</small>
+                <small class="text-muted text-wrap d-block mt-1">* ลงทุนจริงลบปันผลคืนจริง (คำนวณให้ออโต้)</small>
               </div>
             </div>
           </div>
 
-          <div class="text-end">
-            <button type="button" class="btn btn-secondary me-2" onclick="resetForm()">ล้างข้อมูล</button>
-            <button type="submit" class="btn btn-primary" id="btnSubmit"><i class="fa-solid fa-save"></i> บันทึกข้อมูล</button>
+          <div class="text-end d-flex justify-content-between align-items-center">
+            <button type="button" class="btn btn-secondary" onclick="resetForm(false)"><i class="fa-solid fa-eraser"></i> ล้างข้อมูลทั้งหมด</button>
+            <div>
+              <button type="button" class="btn btn-outline-primary me-2" id="btnSaveContinue"><i class="fa-solid fa-folder-plus"></i> บันทึกและคีย์แฟ้มเดิมต่อ</button>
+              <button type="submit" class="btn btn-primary" id="btnSubmit"><i class="fa-solid fa-save"></i> บันทึกข้อมูล</button>
+            </div>
           </div>
         </form>
       </div>
@@ -341,6 +345,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+  
+  <!-- IMask สำหรับจัด Format บัตรประชาชน -->
+  <script src="https://unpkg.com/imask"></script>
+  <!-- TomSelect สำหรับ Dropdown อัจฉริยะ -->
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
   <script>
     let myDataTable;
@@ -348,8 +357,11 @@
     let allTableData = []; 
     let investmentUnitMap = {}; 
     let isShortcutJump = false; 
+    let idMask; // ตัวแปรสำหรับ IMask บัตร ปชช.
+    
+    // ตัวแปรสำหรับ TomSelect
+    let tsCompany, tsInvType, tsUnitType;
 
-    // เพิ่มฟังก์ชันตรวจสอบบัตรประชาชนที่หายไป
     function validateThaiID(id) {
       if (!/^[0-9]{13}$/.test(id)) return false;
       let sum = 0;
@@ -382,21 +394,36 @@
     $(document).ready(function() {
       $('.nav-link').on('click', function() { switchTab($(this).data('tab')); });
 
+      // Init IMask สำหรับบัตรประชาชน
+      idMask = IMask(document.getElementById('idCard'), { mask: '0-0000-00000-00-0' });
+      
+      // Init TomSelect
+      tsCompany = new TomSelect("#companyName", { create: true, sortField: {field: "text", direction: "asc"} });
+      tsInvType = new TomSelect("#invType", { create: true, sortField: {field: "text", direction: "asc"} });
+      tsUnitType = new TomSelect("#unitType", { create: true, sortField: {field: "text", direction: "asc"} });
+
+      // แมปหน่วยนับอัตโนมัติเมื่อเลือกประเภท
+      tsInvType.on('change', function(val) {
+        if (investmentUnitMap && investmentUnitMap[val]) {
+          tsUnitType.addOption({value: investmentUnitMap[val], text: investmentUnitMap[val]});
+          tsUnitType.setValue(investmentUnitMap[val]);
+        }
+      });
+
       loadSettings();
       loadTableData();
       setupCalculations();
       addPaymentRow();
 
-      // ตรวจสอบเลขบัตรและ Auto-fill ยอดเงินรวม
-      $('#idCard').on('input', function() {
-        let id = $(this).val().replace(/\D/g, ''); 
-        $(this).val(id);
-
+      // ตรวจสอบเลขบัตรเมื่อพิมพ์ครบ
+      idMask.on('accept', function() {
+        let id = idMask.unmaskedValue;
         if (id.length === 13) {
           if (validateThaiID(id)) {
-            $(this).removeClass('is-invalid').addClass('is-valid');
+            $('#idCard').removeClass('is-invalid').addClass('is-valid');
             $('#idCardFeedback').text('');
             
+            // ดึงประวัติเก่ามาโชว์
             let existingRecord = allTableData.find(row => row[2].toString().trim() === id.trim());
             if (existingRecord && $('#recordId').val() === '') {
               let prevActualInvest = existingRecord[18] ? existingRecord[18].toString().replace(/,/g, '') : '0';
@@ -412,26 +439,21 @@
               
               Swal.fire({
                 icon: 'info', title: 'พบข้อมูลเดิมในระบบ',
-                text: 'ดึงชื่อและประวัติยอดเงินในบัญชีทรัพย์ฯ ของบุคคลนี้มาให้เรียบร้อยแล้ว (คุณสามารถแก้ไขตัวเลขได้หากมีการเปลี่ยนแปลง)',
+                text: 'ดึงชื่อและประวัติยอดเงินในบัญชีทรัพย์ฯ ของบุคคลนี้มาให้เรียบร้อยแล้ว',
                 timer: 3500, showConfirmButton: false
               });
             }
           } else {
-            $(this).removeClass('is-valid').addClass('is-invalid');
+            $('#idCard').removeClass('is-valid').addClass('is-invalid');
             $('#idCardFeedback').text('เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์');
           }
         } else {
-          $(this).removeClass('is-valid is-invalid');
+          $('#idCard').removeClass('is-valid is-invalid');
           if (id.length > 0) {
-             $(this).addClass('is-invalid');
+             $('#idCard').addClass('is-invalid');
              $('#idCardFeedback').text('กรุณากรอกให้ครบ 13 หลัก');
           }
         }
-      });
-      
-      $('#invType').on('input change', function() {
-        let selectedInv = $(this).val().trim();
-        if (investmentUnitMap && investmentUnitMap[selectedInv]) $('#unitType').val(investmentUnitMap[selectedInv]);
       });
 
       flatpickr("#contractDate", fpConfig);
@@ -440,6 +462,13 @@
         if (fp) { isShortcutJump = true; fp.jumpToDate(new Date(year, 0, 1)); fp.open(); }
       };
 
+      // กดปุ่ม บันทึกแบบ Add Another (คีย์ต่อ)
+      $('#btnSaveContinue').on('click', function() {
+        $('#dataForm').data('keepContext', true);
+        $('#dataForm').submit();
+      });
+
+      // ฟังก์ชัน Submit หลัก
       $('#dataForm').on('submit', function(e) {
         e.preventDefault();
         let payments = [];
@@ -452,14 +481,15 @@
         });
         $('#serializedPaymentDate').val(JSON.stringify(payments));
 
-        const idCard = $('#idCard').val();
-        // ฟังก์ชัน validateThaiID ใช้งานได้แล้ว จะผ่านไปฟังก์ชัน saveData() ต่อ
-        if(!validateThaiID(idCard)) {
+        let idCardUnmasked = idMask.unmaskedValue;
+        if(!validateThaiID(idCardUnmasked)) {
           Swal.fire('ข้อผิดพลาด', 'เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์', 'error');
           $('#idCard').focus();
           return;
         }
-        saveData();
+        
+        let keepContext = $(this).data('keepContext') || false;
+        saveData(keepContext);
       });
     });
 
@@ -568,7 +598,6 @@
         else if ($total.val() !== '' && m > 0) $percent.val(addCommas((((t / m) - 1) * 100).toFixed(2)));
       });
 
-      // ระบบคำนวณมูลค่าความเสียหายสุทธิอิสระรายบุคคล
       function calculateNetDamage() {
         let invest = parseFloat($('#actualInvest').val().replace(/,/g, '')) || 0;
         let ret = parseFloat($('#actualReturn').val().replace(/,/g, '')) || 0;
@@ -580,12 +609,11 @@
     function loadSettings() {
       google.script.run.withSuccessHandler(function(res) {
         investmentUnitMap = res.unitMapping || {}; 
-        let getOpts = arr => arr.map(v => `<option value="${v}">`).join('');
-        $('#invTypeList').html(getOpts(res.invTypes));
-        $('#unitTypeList').html(getOpts(res.unitTypes));
-        $('#companyList').html(getOpts(res.companyTypes));
         
-        // สั่งอัปเดต Dashboard เสมอหลังจากโหลด Settings เสร็จ เพื่อให้การแมปหน่วยนับถูกต้องเสมอ
+        tsCompany.clearOptions(); res.companyTypes.forEach(v => tsCompany.addOption({value: v, text: v}));
+        tsInvType.clearOptions(); res.invTypes.forEach(v => tsInvType.addOption({value: v, text: v}));
+        tsUnitType.clearOptions(); res.unitTypes.forEach(v => tsUnitType.addOption({value: v, text: v}));
+
         renderDashboard(); 
       }).getSettings();
     }
@@ -604,6 +632,9 @@
           let contractDateObj = new Date(row[5]);
           let contractDateStr = isNaN(contractDateObj) ? row[5] : contractDateObj.toLocaleDateString('th-TH');
           
+          // Format ID Card (ใส่ขีดให้อ่านง่ายในตาราง)
+          let formattedIdCard = row[2] ? row[2].toString().replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{1})/, "$1-$2-$3-$4-$5") : '';
+
           let fmtPaymentDate = "";
           try {
             let payments = JSON.parse(row[6]);
@@ -624,7 +655,7 @@
           let formatNum = val => parseFloat(val||0).toLocaleString('en-US', {minimumFractionDigits: 2});
           
           tbody += `<tr>
-            <td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td class="small text-muted">${row[7]}</td> 
+            <td>${row[1]}</td><td>${formattedIdCard}</td><td>${row[3]}</td><td class="small text-muted">${row[7]}</td> 
             <td>${row[8]}</td><td>${parseFloat(row[9]||0).toLocaleString('en-US')}</td><td>${row[10]}</td>
             <td>${formatNum(row[11])}</td><td>${formatNum(row[12])}</td><td class="text-danger fw-bold">${formatNum(row[13])}</td>
             <td class="text-success">${formatNum(row[14])}</td><td class="text-info">${row[15] ? formatNum(row[15])+'%' : '-'}</td>
@@ -644,12 +675,11 @@
         $('#dataTable tbody').html(tbody);
         myDataTable = $('#dataTable').DataTable({ language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/th.json' }, order: [[17, 'desc']], pageLength: 25 });
         
-        // สั่งอัปเดต Dashboard เมื่อโหลดข้อมูลตารางเสร็จ
         renderDashboard();
       }).getData();
     }
 
-    function saveData() {
+    function saveData(keepContext = false) {
       Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
       
       let formObj = {};
@@ -660,21 +690,41 @@
           formObj[item.name] = item.value;
         }
       });
+      
+      // บังคับส่งค่าเลข ปชช. แบบไม่มีขีดเพื่อนำไปตรวจสอบและบันทึก
+      formObj.idCard = idMask.unmaskedValue;
 
       google.script.run.withSuccessHandler(function(res) {
         if(res.status === 'success') {
-          Swal.fire('สำเร็จ', res.message, 'success');
-          resetForm(); loadSettings(); loadTableData(); switchTab('table');
+          // แจ้งเตือนแตกต่างกันตามบริบทการบันทึก
+          if(keepContext) {
+            Swal.fire({icon: 'success', title: 'บันทึกสำเร็จ', text: 'พร้อมกรอกข้อมูลสัญญาถัดไปในแฟ้มเดิมแล้ว', timer: 2500, showConfirmButton: false});
+          } else {
+            Swal.fire('สำเร็จ', res.message, 'success');
+            switchTab('table');
+          }
+          
+          resetForm(keepContext); 
+          loadSettings(); 
+          loadTableData();
+          $('#dataForm').data('keepContext', false); // รีเซ็ต flag
         } else {
           Swal.fire('เกิดข้อผิดพลาด', res.message, 'error');
+          $('#dataForm').data('keepContext', false);
         }
-      }).withFailureHandler(err => Swal.fire('เกิดข้อผิดพลาด', err.message, 'error')).saveData(formObj);
+      }).withFailureHandler(err => {
+        Swal.fire('เกิดข้อผิดพลาด', err.message, 'error');
+        $('#dataForm').data('keepContext', false);
+      }).saveData(formObj);
     }
 
     function editRecord(index) {
       let row = allTableData[index]; 
       $('#formTitle').html('<i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูลสัญญา');
-      $('#recordId').val(row[0]); $('#fileNo').val(row[1]); $('#idCard').val(row[2]); $('#fullName').val(row[3]); $('#phone').val(row[4]); 
+      $('#recordId').val(row[0]); $('#fileNo').val(row[1]); $('#fullName').val(row[3]); $('#phone').val(row[4]); 
+      
+      // ให้ค่าแก่ IMask บัตร ปชช. (มันจะเว้นวรรคให้เอง)
+      idMask.unmaskedValue = row[2].toString();
       
       let dContract = new Date(row[5]);
       if(!isNaN(dContract)) document.getElementById('contractDate')._flatpickr.setDate(dContract);
@@ -687,7 +737,12 @@
         else addPaymentRow(row[6], "", "งวดเดียว");
       } catch (e) { addPaymentRow(row[6], "", "งวดเดียว"); }
       
-      $('#companyName').val(row[7]); $('#invType').val(row[8]); $('#unitAmount').val(addCommas(row[9])); $('#unitType').val(row[10]);
+      // เซ็ตค่าให้ TomSelect (ถ้าไม่มี option อยู่ มันจะสร้างให้)
+      tsCompany.addOption({value: row[7], text: row[7]}); tsCompany.setValue(row[7]);
+      tsInvType.addOption({value: row[8], text: row[8]}); tsInvType.setValue(row[8]);
+      tsUnitType.addOption({value: row[10], text: row[10]}); tsUnitType.setValue(row[10]);
+
+      $('#unitAmount').val(addCommas(row[9]));
       
       let fmt = val => addCommas(parseFloat(val||0).toFixed(2));
       $('#fullAmount').val(fmt(row[11])); $('#discount').val(fmt(row[12])); $('#netAmount').val(fmt(row[13]));
@@ -697,7 +752,9 @@
       $('#actualReturn').val(fmt(row[19])); 
       $('#netDamage').val(fmt(row[20])); 
       
-      $('#idCard').trigger('input');
+      // trigger event เพื่อให้ feedback เขียวๆ ขึ้น
+      idMask.updateValue();
+      
       switchTab('form'); window.scrollTo(0,0);
     }
 
@@ -716,17 +773,35 @@
       });
     }
 
-    function resetForm() {
+    function resetForm(keepContext = false) {
+      // จดจำค่าเดิมก่อนล้างฟอร์ม
+      let savedFileNo = $('#fileNo').val();
+      let savedCompany = tsCompany.getValue();
+      let savedDate = document.getElementById('contractDate')._flatpickr ? document.getElementById('contractDate')._flatpickr.selectedDates[0] : null;
+
       $('#dataForm')[0].reset();
       $('#recordId').val('');
-      $('#idCard').removeClass('is-valid is-invalid'); $('#idCardFeedback').text('กรุณากรอกเฉพาะตัวเลข 13 หลัก');
+      
+      idMask.unmaskedValue = ''; // เคลียร์ IMask
+      $('#idCard').removeClass('is-valid is-invalid'); $('#idCardFeedback').text('กรุณากรอกให้ครบ 13 หลัก');
       $('#formTitle').html('<i class="fa-solid fa-plus"></i> เพิ่มข้อมูลผู้เสียหาย/สัญญา');
+      
       if (document.getElementById('contractDate')._flatpickr) document.getElementById('contractDate')._flatpickr.clear();
       $('#paymentRowsContainer').empty(); addPaymentRow();
       $('#actualReturn').val('0'); $('#actualInvest').val('0'); $('#netDamage').val('0');
+
+      tsCompany.clear(); tsInvType.clear(); tsUnitType.clear();
+
+      // ถ้าระบุว่าให้อยู่บริบทเดิม (บันทึกแล้วคีย์ต่อ)
+      if(keepContext) {
+         $('#fileNo').val(savedFileNo);
+         if(savedCompany) tsCompany.setValue(savedCompany);
+         if(savedDate) document.getElementById('contractDate')._flatpickr.setDate(savedDate);
+         window.scrollTo({top: 0, behavior: 'smooth'});
+         $('#idCard').focus(); // ให้เมาส์ไปรอที่ช่องเลขบัตร ปชช. สำหรับคนต่อไป
+      }
     }
 
-    // แก้ไขฟังก์ชันเป็นแบบ render แทนการดึงข้อมูลจากหลังบ้านเพื่อแก้บั๊กหน่วยซ้ำซ้อนและ Race Condition
     function renderDashboard() {
         if (!allTableData || allTableData.length === 0) return;
 
@@ -743,8 +818,6 @@
           let invType = row[8] ? row[8].toString().trim() : 'ไม่ระบุ'; 
           let unitAmount = parseFloat(row[9].toString().replace(/,/g, '')) || 0; 
           
-          // 🌟 บังคับดึงหน่วยนับที่ถูกต้องที่สุดจาก Settings (investmentUnitMap) เสมอ
-          // ถ้าไม่มีใน Settings ถึงจะไปดึงจากประวัติเดิมในตาราง (row[10]) เพื่อป้องกันบั๊กข้อมูลเก่ากรอกผิด
           let unitText = (investmentUnitMap && investmentUnitMap[invType]) 
               ? investmentUnitMap[invType] 
               : (row[10] ? row[10].toString().trim() : '');
@@ -766,7 +839,6 @@
           typeSummary[invType].units += unitAmount; 
           typeSummary[invType].sum += netAmount;
           
-          // เขียนทับค่าตัวแปรทุกรอบการวิ่งเผื่อกรณีที่ข้อมูลถูกสร้างไว้ก่อนหน้านี้ด้วยตัวหนังสือที่ผิด
           typeSummary[invType].unitText = unitText; 
         });
 
