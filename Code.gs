@@ -40,11 +40,29 @@ function getSettings() {
   };
 }
 
+// ฟังก์ชันตรวจสอบบัตรประชาชนฝั่ง Server ป้องกันการยิง API ขยะเข้ามา
+function validateThaiIDServer(id) {
+  if (!/^[0-9]{13}$/.test(id)) return false;
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(id.charAt(i)) * (13 - i);
+  }
+  let checkDigit = (11 - (sum % 11)) % 10;
+  return checkDigit === parseInt(id.charAt(12));
+}
+
 // บันทึก หรือ อัปเดตข้อมูล (รองรับ 22 คอลัมน์)
 function saveData(formObj) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
+    
+    // ตรวจสอบเลข ปชช. ก่อนเซฟ
+    let cleanIdCard = formObj.idCard.toString().replace(/\D/g, '');
+    if (!validateThaiIDServer(cleanIdCard)) {
+       throw new Error("เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์");
+    }
+    formObj.idCard = cleanIdCard; // มั่นใจว่าบันทึกแบบไม่มีขีด
     
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const dataSheet = ss.getSheetByName('Data');
@@ -81,19 +99,20 @@ function saveData(formObj) {
     ];
     
     if (isUpdate) {
-      const data = dataSheet.getDataRange().getValues();
-      let rowIndex = -1;
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][0] === id) {
-          rowIndex = i + 1; 
-          break;
+      let lastRow = dataSheet.getLastRow();
+      if (lastRow > 0) {
+        // ดึงแค่คอลัมน์ A มาเช็ค Index ทำให้ไวกว่าการดึงข้อมูลทั้งตาราง
+        let idColumn = dataSheet.getRange(1, 1, lastRow, 1).getValues().flat();
+        let rowIndex = idColumn.indexOf(id) + 1; 
+        
+        if (rowIndex > 1) { // สมมติว่าแถวที่ 1 คือ Header
+          rowData[21] = dataSheet.getRange(rowIndex, 22).getValue(); // รักษา Timestamp เดิม
+          dataSheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+        } else {
+          throw new Error("ไม่พบข้อมูลที่ต้องการแก้ไข");
         }
-      }
-      if (rowIndex > -1) {
-        rowData[21] = data[rowIndex - 1][21]; // รักษา Timestamp เดิม
-        dataSheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
       } else {
-        throw new Error("ไม่พบข้อมูลที่ต้องการแก้ไข");
+        throw new Error("ตารางข้อมูลว่างเปล่า");
       }
     } else {
       dataSheet.appendRow(rowData);
@@ -140,7 +159,7 @@ function getData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Data');
   const data = sheet.getDataRange().getDisplayValues();
-  if (data.length > 0) data.shift();
+  if (data.length > 0) data.shift(); // ลบ Header ออก
   return data;
 }
 
@@ -150,11 +169,14 @@ function deleteData(id) {
     lock.waitLock(10000);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Data');
-    const data = sheet.getDataRange().getValues();
     
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === id) {
-        sheet.deleteRow(i + 1);
+    let lastRow = sheet.getLastRow();
+    if (lastRow > 0) {
+      let idColumn = sheet.getRange(1, 1, lastRow, 1).getValues().flat();
+      let rowIndex = idColumn.indexOf(id) + 1;
+      
+      if (rowIndex > 1) {
+        sheet.deleteRow(rowIndex);
         return { status: 'success', message: 'ลบข้อมูลเรียบร้อยแล้ว' };
       }
     }
@@ -164,79 +186,4 @@ function deleteData(id) {
   } finally {
     lock.releaseLock();
   }
-}
-
-function getDashboardData() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Data');
-  const data = sheet.getDataRange().getValues();
-  
-  let totalContracts = 0;
-  let totalNetAmount = 0;
-  let totalUnits = 0;
-  let uniqueVictims = new Set();
-  let typeSummary = {};
-  
-  let victimActualReturns = {};
-  let victimActualInvests = {};
-  
-  if (data.length > 1) {
-    for (let i = 1; i < data.length; i++) {
-      let row = data[i];
-      if (!row[0]) continue;
-      
-      let idCard = row[2] ? row[2].toString().trim() : '';
-      let invType = row[8] || 'ไม่ระบุ'; 
-      let unitAmount = parseFloat(row[9]) || 0; 
-      let unitText = row[10] || ''; 
-      let netAmount = parseFloat(row[13]) || 0; 
-      let actualInvest = parseFloat(row[18]) || 0; 
-      let actualReturn = parseFloat(row[19]) || 0; 
-      
-      totalContracts++;
-      totalNetAmount += netAmount;
-      totalUnits += unitAmount;
-      if (idCard) {
-        uniqueVictims.add(idCard);
-        // เก็บเฉพาะค่ายอดรวมที่สูงที่สุด/ล่าสุด ของคนๆนั้น เพื่อไม่ให้เกิดการบวกเบิ้ลเมื่อเขามีหลายสัญญา
-        if (!victimActualReturns[idCard] || actualReturn > victimActualReturns[idCard]) {
-          victimActualReturns[idCard] = actualReturn;
-        }
-        if (!victimActualInvests[idCard] || actualInvest > victimActualInvests[idCard]) {
-          victimActualInvests[idCard] = actualInvest;
-        }
-      }
-      
-      if (!typeSummary[invType]) {
-        typeSummary[invType] = { count: 0, units: 0, sum: 0, unitText: '' };
-      }
-      typeSummary[invType].count += 1;
-      typeSummary[invType].units += unitAmount;
-      typeSummary[invType].sum += netAmount;
-      typeSummary[invType].unitText = unitText;
-    }
-  }
-  
-  let totalActualReturnSum = 0;
-  for (let id in victimActualReturns) {
-    totalActualReturnSum += victimActualReturns[id];
-  }
-  
-  let totalActualInvestSum = 0;
-  for (let id in victimActualInvests) {
-    totalActualInvestSum += victimActualInvests[id];
-  }
-  
-  let totalNetDamage = totalActualInvestSum - totalActualReturnSum;
-  
-  return {
-    totalVictims: uniqueVictims.size,
-    totalContracts: totalContracts,
-    totalNetAmount: totalNetAmount,
-    totalUnits: totalUnits,
-    totalActualInvest: totalActualInvestSum,
-    totalActualReturn: totalActualReturnSum,
-    totalNetDamage: totalNetDamage,
-    summaryByType: typeSummary
-  };
 }
