@@ -9,7 +9,6 @@
   <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <!-- TomSelect CSS สำหรับ Dropdown อัจฉริยะ -->
   <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
   
   <style>
@@ -40,12 +39,13 @@
     .form-control, .form-select, .ts-control { border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px 15px; }
     .form-control:focus, .form-select:focus, .ts-control.focus { border-color: var(--primary-color); box-shadow: 0 0 0 0.25rem rgba(74, 118, 168, 0.2); }
     .btn { border-radius: 8px; font-weight: 500; padding: 8px 20px; }
-    
     .required::after { content: " *"; color: #ef4444; }
     .chart-container { position: relative; height: 350px; width: 100%; }
-    
-    /* ซ่อนลูกศรใน input number */
     input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* Custom Summary Box */
+    .summary-box { background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); border-left: 5px solid #0284c7; border-radius: 10px; display: none; animation: fadeIn 0.3s ease-in-out; }
+    .summary-box.show { display: block; }
   </style>
 </head>
 <body>
@@ -143,6 +143,32 @@
           </div>
         </div>
       </div>
+      
+      <!-- ตารางสรุปข้อมูลแยกตามชื่อเซลล์ (เพิ่มใหม่) -->
+      <div class="row">
+        <div class="col-12 mb-4">
+          <div class="card card-stat p-3 h-100">
+            <h5 class="mb-3">สรุปข้อมูลแยกตามชื่อเซลล์</h5>
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>ชื่อเซลล์</th>
+                    <th class="text-end" style="width: 15%;">จำนวน (สัญญา)</th>
+                    <th class="text-end" style="width: 20%;">จำนวนผู้เสียหาย (ราย)</th>
+                    <th class="text-end" style="width: 25%;">มูลค่าเงินลงทุนสุทธิ (บาท)</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-sales-table-body">
+                  <tr><td colspan="4" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- สิ้นสุดตารางสรุปข้อมูลแยกตามชื่อเซลล์ -->
+
     </div>
 
     <!-- ================= FORM SECTION ================= -->
@@ -150,19 +176,53 @@
       <div class="card card-stat p-4 mx-auto" style="max-width: 1000px;">
         <h4 class="mb-4 border-bottom pb-2" id="formTitle"><i class="fa-solid fa-plus"></i> เพิ่มข้อมูลผู้เสียหาย/สัญญา</h4>
         
+        <!-- Summary Box (แสดงเมื่อเจอคนเดิม) -->
+        <div id="profileSummaryBox" class="summary-box p-3 mb-4 shadow-sm">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="text-sky-800 m-0 fw-bold"><i class="fa-solid fa-address-card text-sky-600"></i> ประวัติผู้เสียหายในระบบ</h5>
+            <span id="summaryCount" class="badge bg-primary rounded-pill px-3 py-2">เคยบันทึกแล้ว 0 สัญญา</span>
+          </div>
+          <div class="row g-2 mt-1">
+            <div class="col-md-4">
+              <div class="bg-white p-2 rounded shadow-sm text-center">
+                <span class="d-block small text-muted">เงินลงทุนรวมทั้งหมด</span>
+                <strong class="text-danger" id="sumInvestOld">0.00</strong>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="bg-white p-2 rounded shadow-sm text-center">
+                <span class="d-block small text-muted">ผลตอบแทนรวมทั้งหมด</span>
+                <strong class="text-success" id="sumReturnOld">0.00</strong>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="bg-white p-2 rounded shadow-sm text-center">
+                <span class="d-block small text-muted">ความเสียหายรวมทั้งหมด</span>
+                <strong class="text-dark" id="sumDamageOld">0.00</strong>
+              </div>
+            </div>
+          </div>
+          <!-- พื้นที่สำหรับแสดงรายการสัญญาแบบย่อย -->
+          <div id="existingContractsList"></div>
+        </div>
+        <!-- End Summary Box -->
+
         <form id="dataForm">
           <input type="hidden" id="recordId" name="id">
           
           <div class="row mb-3">
             <div class="col-md-6 mb-3">
-              <label class="form-label required">แฟ้มที่ (อ้างอิงเอกสาร)</label>
-              <input type="text" class="form-control" id="fileNo" name="fileNo" required placeholder="เช่น แฟ้ม 1, เล่มที่ 2">
+              <label class="form-label required">เลขประจำตัวประชาชน (13 หลัก)</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fa-solid fa-id-card"></i></span>
+                <input type="text" class="form-control" id="idCard" name="idCard" required placeholder="x-xxxx-xxxxx-xx-x">
+              </div>
+              <div class="invalid-feedback" id="idCardFeedback">กรุณากรอกให้ครบ 13 หลัก</div>
+              <div class="valid-feedback"><i class="fa-solid fa-check-circle"></i> ตรวจสอบแล้ว</div>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label required">เลขประจำตัวประชาชน (13 หลัก)</label>
-              <input type="text" class="form-control" id="idCard" name="idCard" required placeholder="x-xxxx-xxxxx-xx-x">
-              <div class="invalid-feedback" id="idCardFeedback">กรุณากรอกให้ครบ 13 หลัก</div>
-              <div class="valid-feedback"><i class="fa-solid fa-check-circle"></i> เลขประจำตัวประชาชนถูกต้อง</div>
+              <label class="form-label required">แฟ้มที่ (อ้างอิงเอกสาร)</label>
+              <input type="text" class="form-control" id="fileNo" name="fileNo" required placeholder="เช่น แฟ้ม 1, เล่มที่ 2">
             </div>
           </div>
 
@@ -212,13 +272,19 @@
                 <button class="btn btn-outline-secondary" type="button" onclick="adjUnit(1)"><i class="fa-solid fa-plus"></i></button>
               </div>
             </div>
-            <div class="col-md-8 mb-3">
+            <!-- ปรับขนาดช่องหน่วยนับให้แคบลง (col-md-2) และปรับ placeholder ให้สั้นลง -->
+            <div class="col-md-2 mb-3">
               <label class="form-label required">หน่วยนับ</label>
-              <select id="unitType" name="unitType" required placeholder="เลือก หรือ พิมพ์หน่วยนับเพิ่มได้เลย..."></select>
+              <select id="unitType" name="unitType" required placeholder="ระบุหน่วย..."></select>
+            </div>
+            <!-- นำพื้นที่ไปขยายให้ช่องรายชื่อเซลล์ (col-md-6) -->
+            <div class="col-md-6 mb-3">
+              <label class="form-label">รายชื่อเซลล์</label>
+              <select id="salesName" name="salesName" placeholder="เลือก หรือ พิมพ์รายชื่อเซลล์..."></select>
             </div>
           </div>
 
-          <!-- ช่องบันทึกแบบแบ่งชำระ (อิสระจากเงินลงทุนรวม) -->
+          <!-- ช่องบันทึกแบบแบ่งชำระ -->
           <input type="hidden" id="serializedPaymentDate" name="paymentDate">
           <div class="card p-3 bg-white border rounded mb-4 shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
@@ -230,7 +296,7 @@
 
           <!-- Section คำนวณเงิน -->
           <div class="p-3 bg-light border rounded mb-4">
-            <h6 class="mb-3 text-primary"><i class="fa-solid fa-calculator"></i> คำนวณมูลค่าการลงทุน (ระบบคำนวณอัตโนมัติ)</h6>
+            <h6 class="mb-3 text-primary"><i class="fa-solid fa-calculator"></i> คำนวณมูลค่าการลงทุนสัญญาฉบับนี้ (ระบบคำนวณอัตโนมัติ)</h6>
             <div class="row">
               <div class="col-md-4 mb-3">
                 <label class="form-label required">มูลค่าเต็มตามสัญญา (บาท)</label>
@@ -268,30 +334,27 @@
 
             <!-- ส่วนของข้อมูล บัญชีทรัพย์สินรายบุคคล -->
             <div class="row border-top pt-3 mt-2 bg-white rounded p-2 shadow-sm">
+              <div class="col-12 mb-2">
+                <h6 class="text-danger fw-bold m-0"><i class="fa-solid fa-file-invoice"></i> ยอดรวมบัญชีทรัพย์ถูกประทุษร้าย (ทั้งหมดของบุคคลนี้)</h6>
+                <small id="totalHelperText" class="text-muted d-block mt-1">ยอดรวมของทุกสัญญาสำหรับบุคคลนี้ (จะถูกกรอกเฉพาะตอนบันทึกสัญญาแรกของคนนี้เท่านั้น)</small>
+              </div>
               <div class="col-md-4 mb-3">
-                <label class="form-label text-danger fw-bold"><i class="fa-solid fa-money-bill-transfer"></i> เงินลงทุนที่จ่ายจริงรวม (บาท)</label>
+                <label class="form-label text-danger">เงินลงทุนที่จ่ายจริงรวมทั้งหมด</label>
                 <input type="text" class="form-control number-input fw-bold border-danger text-danger bg-light" id="actualInvest" name="actualInvest" placeholder="0.00" value="0">
-                <small class="text-muted text-wrap d-block mt-1">* กรอกยอดเงินลงทุนรวมของบุคคลนี้ (ดึงออโต้หากมีประวัติ)</small>
               </div>
               <div class="col-md-4 mb-3">
-                <label class="form-label text-success fw-bold"><i class="fa-solid fa-building-columns"></i> ผลตอบแทนที่คืนรวม (บาท)</label>
+                <label class="form-label text-success">ผลตอบแทนรวมทั้งหมด</label>
                 <input type="text" class="form-control number-input fw-bold border-success text-success bg-light" id="actualReturn" name="actualReturn" placeholder="0.00" value="0">
-                <small class="text-muted text-wrap d-block mt-1">* ยอดรวมที่ได้ปันผลคืนจริงตาม Statement</small>
               </div>
               <div class="col-md-4 mb-3">
-                <label class="form-label text-dark fw-bold"><i class="fa-solid fa-scale-unbalanced-flip"></i> มูลค่าความเสียหายสุทธิ (บาท)</label>
+                <label class="form-label text-dark">มูลค่าความเสียหายรวมทั้งหมด</label>
                 <input type="text" class="form-control number-input fw-bold bg-secondary-subtle" id="netDamage" name="netDamage" placeholder="0.00" value="0" readonly>
-                <small class="text-muted text-wrap d-block mt-1">* ลงทุนจริงลบปันผลคืนจริง (คำนวณให้ออโต้)</small>
               </div>
             </div>
           </div>
 
-          <div class="text-end d-flex justify-content-between align-items-center">
-            <button type="button" class="btn btn-secondary" onclick="resetForm(false)"><i class="fa-solid fa-eraser"></i> ล้างข้อมูลทั้งหมด</button>
-            <div>
-              <button type="button" class="btn btn-outline-primary me-2" id="btnSaveContinue"><i class="fa-solid fa-folder-plus"></i> บันทึกและคีย์แฟ้มเดิมต่อ</button>
-              <button type="submit" class="btn btn-primary" id="btnSubmit"><i class="fa-solid fa-save"></i> บันทึกข้อมูล</button>
-            </div>
+          <div class="text-end">
+            <button type="submit" class="btn btn-primary px-5 btn-lg shadow-sm" id="btnSubmit"><i class="fa-solid fa-save"></i> บันทึกข้อมูล</button>
           </div>
         </form>
       </div>
@@ -312,6 +375,7 @@
                 <th>ประเภทสัญญา</th>
                 <th>จำนวน</th>
                 <th>หน่วย</th>
+                <th>รายชื่อเซลล์</th> <!-- คอลัมน์ที่เพิ่มใหม่ -->
                 <th>มูลค่าเต็ม</th>
                 <th>ส่วนลด</th>
                 <th>ยอดจ่ายจริงสุทธิ</th>
@@ -346,9 +410,7 @@
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
   
-  <!-- IMask สำหรับจัด Format บัตรประชาชน -->
   <script src="https://unpkg.com/imask"></script>
-  <!-- TomSelect สำหรับ Dropdown อัจฉริยะ -->
   <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
   <script>
@@ -357,10 +419,10 @@
     let allTableData = []; 
     let investmentUnitMap = {}; 
     let isShortcutJump = false; 
-    let idMask; // ตัวแปรสำหรับ IMask บัตร ปชช.
+    let idMask; 
+    let isExistingPerson = false; // flag ตรวจสอบว่าคนนี้เคยมีสัญญาในระบบไหม
     
-    // ตัวแปรสำหรับ TomSelect
-    let tsCompany, tsInvType, tsUnitType;
+    let tsCompany, tsInvType, tsUnitType, tsSalesName;
 
     function validateThaiID(id) {
       if (!/^[0-9]{13}$/.test(id)) return false;
@@ -394,15 +456,13 @@
     $(document).ready(function() {
       $('.nav-link').on('click', function() { switchTab($(this).data('tab')); });
 
-      // Init IMask สำหรับบัตรประชาชน
       idMask = IMask(document.getElementById('idCard'), { mask: '0-0000-00000-00-0' });
       
-      // Init TomSelect
       tsCompany = new TomSelect("#companyName", { create: true, sortField: {field: "text", direction: "asc"} });
       tsInvType = new TomSelect("#invType", { create: true, sortField: {field: "text", direction: "asc"} });
       tsUnitType = new TomSelect("#unitType", { create: true, sortField: {field: "text", direction: "asc"} });
+      tsSalesName = new TomSelect("#salesName", { create: true, sortField: {field: "text", direction: "asc"} });
 
-      // แมปหน่วยนับอัตโนมัติเมื่อเลือกประเภท
       tsInvType.on('change', function(val) {
         if (investmentUnitMap && investmentUnitMap[val]) {
           tsUnitType.addOption({value: investmentUnitMap[val], text: investmentUnitMap[val]});
@@ -415,38 +475,11 @@
       setupCalculations();
       addPaymentRow();
 
-      // ตรวจสอบเลขบัตรเมื่อพิมพ์ครบ
+      // เมื่อกรอกเลข ปชช. ครบ 13 หลัก ทำการยิง API ไปเช็คคนเดิม
       idMask.on('accept', function() {
         let id = idMask.unmaskedValue;
         if (id.length === 13) {
-          if (validateThaiID(id)) {
-            $('#idCard').removeClass('is-invalid').addClass('is-valid');
-            $('#idCardFeedback').text('');
-            
-            // ดึงประวัติเก่ามาโชว์
-            let existingRecord = allTableData.find(row => row[2].toString().trim() === id.trim());
-            if (existingRecord && $('#recordId').val() === '') {
-              let prevActualInvest = existingRecord[18] ? existingRecord[18].toString().replace(/,/g, '') : '0';
-              let prevActualReturn = existingRecord[19] ? existingRecord[19].toString().replace(/,/g, '') : '0';
-              let prevNetDamage = existingRecord[20] ? existingRecord[20].toString().replace(/,/g, '') : '0';
-              
-              $('#actualInvest').val(addCommas(prevActualInvest));
-              $('#actualReturn').val(addCommas(prevActualReturn));
-              $('#netDamage').val(addCommas(prevNetDamage));
-              
-              if(!$('#fullName').val()) $('#fullName').val(existingRecord[3]);
-              if(!$('#phone').val()) $('#phone').val(existingRecord[4]);
-              
-              Swal.fire({
-                icon: 'info', title: 'พบข้อมูลเดิมในระบบ',
-                text: 'ดึงชื่อและประวัติยอดเงินในบัญชีทรัพย์ฯ ของบุคคลนี้มาให้เรียบร้อยแล้ว',
-                timer: 3500, showConfirmButton: false
-              });
-            }
-          } else {
-            $('#idCard').removeClass('is-valid').addClass('is-invalid');
-            $('#idCardFeedback').text('เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์');
-          }
+          triggerSearch(id);
         } else {
           $('#idCard').removeClass('is-valid is-invalid');
           if (id.length > 0) {
@@ -456,42 +489,199 @@
         }
       });
 
+      // แยกฟังก์ชันค้นหาออกมาเพื่อให้เรียกซ้ำได้ตอนกดเพิ่มสัญญาใหม่
+      window.triggerSearch = function(id, autoFillExtra = null) {
+        if (validateThaiID(id)) {
+          $('#idCard').removeClass('is-invalid').addClass('is-valid');
+          $('#idCardFeedback').text('');
+          
+          if ($('#recordId').val() === '') {
+              Swal.showLoading();
+              google.script.run.withSuccessHandler(function(res) {
+                  Swal.close();
+                  if(res.found) {
+                      isExistingPerson = true;
+                      
+                      // แสดงกล่องประวัติ
+                      $('#summaryCount').text(`เคยบันทึกแล้ว ${res.count} สัญญา`);
+                      $('#sumInvestOld').text(addCommas(res.data.totalInvest));
+                      $('#sumReturnOld').text(addCommas(res.data.totalReturn));
+                      $('#sumDamageOld').text(addCommas(res.data.netDamage));
+                      $('#profileSummaryBox').addClass('show');
+
+                      // เติมข้อมูลส่วนตัว
+                      if(!$('#fullName').val()) $('#fullName').val(res.data.fullName);
+                      if(!$('#phone').val()) $('#phone').val(res.data.phone);
+                      if(!$('#fileNo').val()) $('#fileNo').val(res.data.fileNo);
+                      
+                      // ล็อคช่องยอดรวมให้เป็น Read Only
+                      $('#actualInvest').val(addCommas(res.data.totalInvest)).prop('readonly', true).removeClass('bg-light').addClass('bg-secondary-subtle');
+                      $('#actualReturn').val(addCommas(res.data.totalReturn)).prop('readonly', true).removeClass('bg-light').addClass('bg-secondary-subtle');
+                      $('#netDamage').val(addCommas(res.data.netDamage));
+                      
+                      $('#totalHelperText').html('<span class="text-primary fw-bold">บุคคลนี้เคยมีประวัติแล้ว: ยอดรวมนี้ดึงมาจากข้อมูลเดิม (ตอนบันทึกระบบจะส่งเป็นค่าว่างเพื่อไม่ให้ Google Sheets ซ้ำซ้อนตอนรวมยอด)</span>');
+
+                      // ดึงรายการสัญญาที่มีอยู่แล้วมาแสดงผลสรุปสั้นๆ (กรองจาก allTableData)
+                      let matchedContracts = allTableData.filter(r => r[2] && String(r[2]).replace(/\D/g, '') === id);
+                      let listHtml = '<div class="mt-3"><h6 class="text-secondary mb-2 fw-bold" style="font-size: 0.85rem;"><i class="fa-solid fa-file-signature text-secondary"></i> สรุปรายการสัญญาที่มีในระบบ:</h6>';
+                      listHtml += '<ul class="list-group list-group-flush rounded shadow-sm border">';
+                      
+                      if (matchedContracts.length > 0) {
+                          matchedContracts.forEach((m, idx) => {
+                              let cType = m[8] || 'ไม่ระบุ';
+                              let cCompany = m[7] || '';
+                              let cDateObj = new Date(m[5]);
+                              let cDateStr = isNaN(cDateObj) ? m[5] : cDateObj.toLocaleDateString('th-TH');
+                              let netAmt = parseFloat(m[14] || 0).toLocaleString('en-US', {minimumFractionDigits: 2}); // 14 คือ ยอดเงินลงทุนสุทธิ
+                              
+                              listHtml += `<li class="list-group-item d-flex justify-content-between align-items-start bg-light py-2 px-3" style="font-size: 0.85rem;">
+                                  <div class="ms-2 me-auto">
+                                      <div class="fw-bold text-dark">${idx+1}. ${cType}</div>
+                                      <div class="text-muted" style="font-size: 0.75rem;">${cCompany} <span class="mx-1">|</span> วันที่: ${cDateStr}</div>
+                                  </div>
+                                  <span class="badge bg-danger rounded-pill mt-1" style="font-size: 0.8rem;">${netAmt} ฿</span>
+                              </li>`;
+                          });
+                      } else {
+                          listHtml += `<li class="list-group-item text-muted small text-center">ยังไม่โหลดข้อมูลรายละเอียด หรือ ไม่พบข้อมูลสัญญา</li>`;
+                      }
+                      listHtml += '</ul></div>';
+                      $('#existingContractsList').html(listHtml);
+
+                      // นำค่าอื่นๆ ที่ต้องการคงไว้กลับมาใส่
+                      if (autoFillExtra) {
+                          if(autoFillExtra.company) tsCompany.setValue(autoFillExtra.company);
+                          if(autoFillExtra.date) document.getElementById('contractDate')._flatpickr.setDate(autoFillExtra.date);
+                          if(autoFillExtra.salesName) tsSalesName.setValue(autoFillExtra.salesName);
+                      }
+                  } else {
+                      isExistingPerson = false;
+                      $('#profileSummaryBox').removeClass('show');
+                      $('#existingContractsList').empty(); // เคลียร์ลิสต์สัญญาถ้าเป็นคนใหม่
+                      $('#actualInvest').val('0').prop('readonly', false).removeClass('bg-secondary-subtle').addClass('bg-light');
+                      $('#actualReturn').val('0').prop('readonly', false).removeClass('bg-secondary-subtle').addClass('bg-light');
+                      $('#netDamage').val('0');
+                      $('#totalHelperText').html('ยอดรวมของทุกสัญญาสำหรับบุคคลนี้ (จะถูกกรอกเฉพาะตอนบันทึกสัญญาแรกของคนนี้เท่านั้น)');
+                  }
+              }).searchCitizenId(id);
+          }
+        } else {
+          $('#idCard').removeClass('is-valid').addClass('is-invalid');
+          $('#idCardFeedback').text('เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์');
+        }
+      };
+
       flatpickr("#contractDate", fpConfig);
       window.jumpToYear = function(year, elementId) {
         const fp = document.getElementById(elementId)._flatpickr;
         if (fp) { isShortcutJump = true; fp.jumpToDate(new Date(year, 0, 1)); fp.open(); }
       };
 
-      // กดปุ่ม บันทึกแบบ Add Another (คีย์ต่อ)
-      $('#btnSaveContinue').on('click', function() {
-        $('#dataForm').data('keepContext', true);
-        $('#dataForm').submit();
-      });
-
-      // ฟังก์ชัน Submit หลัก
+      // ฟังก์ชัน Submit หลัก พร้อมการ Validation ยอดแบ่งชำระ
       $('#dataForm').on('submit', function(e) {
         e.preventDefault();
-        let payments = [];
-        document.querySelectorAll('.payment-row').forEach(row => {
-          let fp = row.querySelector('.payment-date')._flatpickr;
-          let pDate = fp && fp.selectedDates[0] ? flatpickr.formatDate(fp.selectedDates[0], "Y-m-d") : row.querySelector('.payment-date').value;
-          let pAmount = row.querySelector('.payment-amount').value.replace(/,/g, '');
-          let pNote = row.querySelector('.payment-note').value;
-          if (pDate || pAmount) payments.push({ date: pDate, amount: pAmount, note: pNote });
-        });
-        $('#serializedPaymentDate').val(JSON.stringify(payments));
-
+        
         let idCardUnmasked = idMask.unmaskedValue;
         if(!validateThaiID(idCardUnmasked)) {
           Swal.fire('ข้อผิดพลาด', 'เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์', 'error');
           $('#idCard').focus();
           return;
         }
+
+        // รวบรวม Payment
+        let payments = [];
+        let totalPaymentAmt = 0;
+        document.querySelectorAll('.payment-row').forEach(row => {
+          let fp = row.querySelector('.payment-date')._flatpickr;
+          let pDate = fp && fp.selectedDates[0] ? flatpickr.formatDate(fp.selectedDates[0], "Y-m-d") : row.querySelector('.payment-date').value;
+          let pAmountRaw = row.querySelector('.payment-amount').value.replace(/,/g, '');
+          let pAmount = parseFloat(pAmountRaw) || 0;
+          let pNote = row.querySelector('.payment-note').value;
+          
+          if (pDate || pAmount > 0) {
+              payments.push({ date: pDate, amount: pAmountRaw, note: pNote });
+              totalPaymentAmt += pAmount;
+          }
+        });
+        $('#serializedPaymentDate').val(JSON.stringify(payments));
+
+        // ตรวจสอบยอดเงินลงทุน vs ยอดโอนชำระ
+        let netAmt = parseFloat($('#netAmount').val().replace(/,/g, '')) || 0;
         
-        let keepContext = $(this).data('keepContext') || false;
-        saveData(keepContext);
+        // ถ้าผลรวมต่างกันเกิน 1 บาท ให้แจ้งเตือน แต่ยอมให้กดบันทึกต่อได้
+        if (netAmt > 0 && Math.abs(netAmt - totalPaymentAmt) > 1) {
+            Swal.fire({
+                title: 'ยอดชำระไม่ตรงกัน!',
+                html: `ยอดลงทุนสุทธิของสัญญานี้: <b>${addCommas(netAmt)}</b> บาท<br>แต่ยอดรวมแบ่งชำระที่คุณกรอกคือ: <b class="text-danger">${addCommas(totalPaymentAmt)}</b> บาท<br><br>ต้องการบันทึกข้อมูลต่อไปหรือไม่?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#198754',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'ยืนยันบันทึก',
+                cancelButtonText: 'กลับไปแก้ไข'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    processSaveData();
+                }
+            });
+        } else {
+            processSaveData();
+        }
       });
     });
+
+    // แยก function บันทึกออกมารับหลังจากกดยืนยัน warning
+    function processSaveData() {
+      Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+      
+      let formObj = {};
+      $('#dataForm').serializeArray().forEach(item => {
+        if(['unitAmount', 'fullAmount', 'discount', 'netAmount', 'monthlyReturn', 'contractYears', 'returnPercent', 'totalReturn'].includes(item.name)) {
+          formObj[item.name] = item.value.replace(/,/g, '');
+        } else {
+          formObj[item.name] = item.value;
+        }
+      });
+      
+      formObj.idCard = idMask.unmaskedValue;
+
+      // ถ้าเป็นคนเดิม ให้ส่งค่ายอดรวมเป็นว่าง (Blank) ไปเก็บใน Google Sheets ป้องกันยอดซ้อนกัน
+      formObj.actualInvest = isExistingPerson ? "" : $('#actualInvest').val().replace(/,/g, '');
+      formObj.actualReturn = isExistingPerson ? "" : $('#actualReturn').val().replace(/,/g, '');
+      formObj.netDamage = isExistingPerson ? "" : $('#netDamage').val().replace(/,/g, '');
+
+      google.script.run.withSuccessHandler(function(res) {
+        if(res.status === 'success') {
+          // ใช้ SweetAlert2 สร้าง Popup ตัวเลือกการทำงานขั้นต่อไป
+          Swal.fire({
+            title: 'บันทึกสำเร็จ!',
+            text: 'คุณต้องการทำรายการใดเป็นลำดับถัดไป?',
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-folder-plus"></i> เพิ่มสัญญาผู้เสียหายคนเดิม',
+            cancelButtonText: '<i class="fa-solid fa-user-plus"></i> ผู้เสียหายใหม่ (ล้างฟอร์ม)',
+            confirmButtonColor: '#198754',
+            cancelButtonColor: '#0d6efd',
+            allowOutsideClick: false
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // กดปุ่มสีเขียว -> เก็บข้อมูลคนเดิมไว้
+              resetForm(true); 
+            } else {
+              // กดปุ่มสีฟ้า หรือคลิกด้านนอก -> ล้างหมด
+              resetForm(false); 
+            }
+          });
+          
+          loadSettings(); 
+          loadTableData();
+        } else {
+          Swal.fire('เกิดข้อผิดพลาด', res.message, 'error');
+        }
+      }).withFailureHandler(err => {
+        Swal.fire('เกิดข้อผิดพลาด', err.message, 'error');
+      }).saveData(formObj);
+    }
 
     window.addPaymentRow = function(dateVal, amountVal, noteVal) {
       const container = document.getElementById('paymentRowsContainer');
@@ -599,9 +789,12 @@
       });
 
       function calculateNetDamage() {
-        let invest = parseFloat($('#actualInvest').val().replace(/,/g, '')) || 0;
-        let ret = parseFloat($('#actualReturn').val().replace(/,/g, '')) || 0;
-        $('#netDamage').val(addCommas((invest - ret).toFixed(2)));
+        // คำนวณความเสียหายสุทธิเฉพาะเมื่อไม่ใช่คนเก่า (ถ้าคนเก่าฟิลด์ถูกล็อคแล้ว)
+        if (!isExistingPerson) {
+            let invest = parseFloat($('#actualInvest').val().replace(/,/g, '')) || 0;
+            let ret = parseFloat($('#actualReturn').val().replace(/,/g, '')) || 0;
+            $('#netDamage').val(addCommas((invest - ret).toFixed(2)));
+        }
       }
       $('#actualInvest, #actualReturn').on('input change', calculateNetDamage);
     }
@@ -613,6 +806,7 @@
         tsCompany.clearOptions(); res.companyTypes.forEach(v => tsCompany.addOption({value: v, text: v}));
         tsInvType.clearOptions(); res.invTypes.forEach(v => tsInvType.addOption({value: v, text: v}));
         tsUnitType.clearOptions(); res.unitTypes.forEach(v => tsUnitType.addOption({value: v, text: v}));
+        tsSalesName.clearOptions(); if(res.salesNames) res.salesNames.forEach(v => tsSalesName.addOption({value: v, text: v}));
 
         renderDashboard(); 
       }).getSettings();
@@ -627,12 +821,12 @@
         data.forEach(function(row, index) {
           if(!row[0]) return; 
           
-          let stampObj = new Date(row[21]);
-          let stampStr = isNaN(stampObj) ? row[21] : stampObj.toLocaleDateString('th-TH');
+          // Index 22 (วันที่กรอก), Index 5 (วันที่ทำสัญญา)
+          let stampObj = new Date(row[22]);
+          let stampStr = isNaN(stampObj) ? row[22] : stampObj.toLocaleDateString('th-TH');
           let contractDateObj = new Date(row[5]);
           let contractDateStr = isNaN(contractDateObj) ? row[5] : contractDateObj.toLocaleDateString('th-TH');
           
-          // Format ID Card (ใส่ขีดให้อ่านง่ายในตาราง)
           let formattedIdCard = row[2] ? row[2].toString().replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{1})/, "$1-$2-$3-$4-$5") : '';
 
           let fmtPaymentDate = "";
@@ -657,13 +851,14 @@
           tbody += `<tr>
             <td>${row[1]}</td><td>${formattedIdCard}</td><td>${row[3]}</td><td class="small text-muted">${row[7]}</td> 
             <td>${row[8]}</td><td>${parseFloat(row[9]||0).toLocaleString('en-US')}</td><td>${row[10]}</td>
-            <td>${formatNum(row[11])}</td><td>${formatNum(row[12])}</td><td class="text-danger fw-bold">${formatNum(row[13])}</td>
-            <td class="text-success">${formatNum(row[14])}</td><td class="text-info">${row[15] ? formatNum(row[15])+'%' : '-'}</td>
-            <td class="text-primary fw-bold">${formatNum(row[16])}</td><td>${row[17] || '-'}</td>
+            <td>${row[11] || '-'}</td> <!-- เพิ่มคอลัมน์รายชื่อเซลล์ -->
+            <td>${formatNum(row[12])}</td><td>${formatNum(row[13])}</td><td class="text-danger fw-bold">${formatNum(row[14])}</td>
+            <td class="text-success">${formatNum(row[15])}</td><td class="text-info">${row[16] ? formatNum(row[16])+'%' : '-'}</td>
+            <td class="text-primary fw-bold">${formatNum(row[17])}</td><td>${row[18] || '-'}</td>
             <td>${contractDateStr}</td><td>${fmtPaymentDate}</td>
-            <td class="text-danger fw-bold">${formatNum(row[18])}</td> 
-            <td class="text-success fw-bold">${formatNum(row[19])}</td> 
-            <td class="text-danger fw-bold bg-danger-subtle">${formatNum(row[20])}</td> 
+            <td class="text-danger fw-bold">${formatNum(row[19])}</td> 
+            <td class="text-success fw-bold">${formatNum(row[20])}</td> 
+            <td class="text-danger fw-bold bg-danger-subtle">${formatNum(row[21])}</td> 
             <td class="small text-muted">${stampStr}</td>
             <td>
               <button class="btn btn-sm btn-outline-warning mb-1" onclick="editRecord(${index})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
@@ -673,49 +868,11 @@
         });
         
         $('#dataTable tbody').html(tbody);
-        myDataTable = $('#dataTable').DataTable({ language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/th.json' }, order: [[17, 'desc']], pageLength: 25 });
+        // เลื่อนการเรียงลำดับไปที่ Index 20 (วันที่กรอกล่าสุด) ตามจำนวนคอลัมน์ใหม่
+        myDataTable = $('#dataTable').DataTable({ language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/th.json' }, order: [[20, 'desc']], pageLength: 25 });
         
         renderDashboard();
       }).getData();
-    }
-
-    function saveData(keepContext = false) {
-      Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
-      
-      let formObj = {};
-      $('#dataForm').serializeArray().forEach(item => {
-        if(['unitAmount', 'fullAmount', 'discount', 'netAmount', 'monthlyReturn', 'contractYears', 'returnPercent', 'totalReturn', 'actualReturn', 'actualInvest', 'netDamage'].includes(item.name)) {
-          formObj[item.name] = item.value.replace(/,/g, '');
-        } else {
-          formObj[item.name] = item.value;
-        }
-      });
-      
-      // บังคับส่งค่าเลข ปชช. แบบไม่มีขีดเพื่อนำไปตรวจสอบและบันทึก
-      formObj.idCard = idMask.unmaskedValue;
-
-      google.script.run.withSuccessHandler(function(res) {
-        if(res.status === 'success') {
-          // แจ้งเตือนแตกต่างกันตามบริบทการบันทึก
-          if(keepContext) {
-            Swal.fire({icon: 'success', title: 'บันทึกสำเร็จ', text: 'พร้อมกรอกข้อมูลสัญญาถัดไปในแฟ้มเดิมแล้ว', timer: 2500, showConfirmButton: false});
-          } else {
-            Swal.fire('สำเร็จ', res.message, 'success');
-            switchTab('table');
-          }
-          
-          resetForm(keepContext); 
-          loadSettings(); 
-          loadTableData();
-          $('#dataForm').data('keepContext', false); // รีเซ็ต flag
-        } else {
-          Swal.fire('เกิดข้อผิดพลาด', res.message, 'error');
-          $('#dataForm').data('keepContext', false);
-        }
-      }).withFailureHandler(err => {
-        Swal.fire('เกิดข้อผิดพลาด', err.message, 'error');
-        $('#dataForm').data('keepContext', false);
-      }).saveData(formObj);
     }
 
     function editRecord(index) {
@@ -723,7 +880,6 @@
       $('#formTitle').html('<i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูลสัญญา');
       $('#recordId').val(row[0]); $('#fileNo').val(row[1]); $('#fullName').val(row[3]); $('#phone').val(row[4]); 
       
-      // ให้ค่าแก่ IMask บัตร ปชช. (มันจะเว้นวรรคให้เอง)
       idMask.unmaskedValue = row[2].toString();
       
       let dContract = new Date(row[5]);
@@ -737,24 +893,32 @@
         else addPaymentRow(row[6], "", "งวดเดียว");
       } catch (e) { addPaymentRow(row[6], "", "งวดเดียว"); }
       
-      // เซ็ตค่าให้ TomSelect (ถ้าไม่มี option อยู่ มันจะสร้างให้)
       tsCompany.addOption({value: row[7], text: row[7]}); tsCompany.setValue(row[7]);
       tsInvType.addOption({value: row[8], text: row[8]}); tsInvType.setValue(row[8]);
       tsUnitType.addOption({value: row[10], text: row[10]}); tsUnitType.setValue(row[10]);
+      
+      if(row[11]) {
+        tsSalesName.addOption({value: row[11], text: row[11]}); 
+        tsSalesName.setValue(row[11]);
+      } else {
+        tsSalesName.clear();
+      }
 
       $('#unitAmount').val(addCommas(row[9]));
       
       let fmt = val => addCommas(parseFloat(val||0).toFixed(2));
-      $('#fullAmount').val(fmt(row[11])); $('#discount').val(fmt(row[12])); $('#netAmount').val(fmt(row[13]));
-      $('#monthlyReturn').val(fmt(row[14])); $('#returnPercent').val(fmt(row[15])); $('#totalReturn').val(fmt(row[16])); $('#contractYears').val(addCommas(row[17]));
+      $('#fullAmount').val(fmt(row[12])); $('#discount').val(fmt(row[13])); $('#netAmount').val(fmt(row[14]));
+      $('#monthlyReturn').val(fmt(row[15])); $('#returnPercent').val(fmt(row[16])); $('#totalReturn').val(fmt(row[17])); $('#contractYears').val(addCommas(row[18]));
       
-      $('#actualInvest').val(fmt(row[18])); 
-      $('#actualReturn').val(fmt(row[19])); 
-      $('#netDamage').val(fmt(row[20])); 
-      
-      // trigger event เพื่อให้ feedback เขียวๆ ขึ้น
+      // การ Edit ไม่ล๊อคยอดเพื่อให้อัพเดทได้
+      $('#actualInvest').val(fmt(row[19])).prop('readonly', false).removeClass('bg-secondary-subtle').addClass('bg-light'); 
+      $('#actualReturn').val(fmt(row[20])).prop('readonly', false).removeClass('bg-secondary-subtle').addClass('bg-light'); 
+      $('#netDamage').val(fmt(row[21])); 
+      isExistingPerson = false;
+      $('#profileSummaryBox').removeClass('show');
+      $('#existingContractsList').empty();
+
       idMask.updateValue();
-      
       switchTab('form'); window.scrollTo(0,0);
     }
 
@@ -776,29 +940,48 @@
     function resetForm(keepContext = false) {
       // จดจำค่าเดิมก่อนล้างฟอร์ม
       let savedFileNo = $('#fileNo').val();
+      let savedIdCard = idMask.unmaskedValue;
+      let savedFullName = $('#fullName').val();
+      let savedPhone = $('#phone').val();
+      
       let savedCompany = tsCompany.getValue();
       let savedDate = document.getElementById('contractDate')._flatpickr ? document.getElementById('contractDate')._flatpickr.selectedDates[0] : null;
+      let savedSalesName = tsSalesName.getValue();
 
+      // ล้างหมด
       $('#dataForm')[0].reset();
       $('#recordId').val('');
       
-      idMask.unmaskedValue = ''; // เคลียร์ IMask
-      $('#idCard').removeClass('is-valid is-invalid'); $('#idCardFeedback').text('กรุณากรอกให้ครบ 13 หลัก');
-      $('#formTitle').html('<i class="fa-solid fa-plus"></i> เพิ่มข้อมูลผู้เสียหาย/สัญญา');
+      // รีเซ็ตการแสดงผลของเลขบัตร ปชช. ให้ว่างเปล่า
+      idMask.unmaskedValue = ''; 
+      idMask.updateValue(); 
       
+      $('#idCard').removeClass('is-valid is-invalid'); $('#idCardFeedback').text('กรุณากรอกให้ครบ 13 หลัก');
+      isExistingPerson = false;
+      $('#profileSummaryBox').removeClass('show');
+      $('#existingContractsList').empty();
+      $('#actualInvest').val('0').prop('readonly', false).removeClass('bg-secondary-subtle').addClass('bg-light');
+      $('#actualReturn').val('0').prop('readonly', false).removeClass('bg-secondary-subtle').addClass('bg-light');
+      $('#netDamage').val('0');
+
+      $('#formTitle').html('<i class="fa-solid fa-plus"></i> เพิ่มข้อมูลผู้เสียหาย/สัญญา');
       if (document.getElementById('contractDate')._flatpickr) document.getElementById('contractDate')._flatpickr.clear();
       $('#paymentRowsContainer').empty(); addPaymentRow();
-      $('#actualReturn').val('0'); $('#actualInvest').val('0'); $('#netDamage').val('0');
+      
+      tsCompany.clear(); tsInvType.clear(); tsUnitType.clear(); tsSalesName.clear();
 
-      tsCompany.clear(); tsInvType.clear(); tsUnitType.clear();
-
-      // ถ้าระบุว่าให้อยู่บริบทเดิม (บันทึกแล้วคีย์ต่อ)
-      if(keepContext) {
-         $('#fileNo').val(savedFileNo);
-         if(savedCompany) tsCompany.setValue(savedCompany);
-         if(savedDate) document.getElementById('contractDate')._flatpickr.setDate(savedDate);
+      // ถ้าเป็นการ "เพิ่มสัญญาคนเดิม"
+      if(keepContext && savedIdCard) {
+         // คืนค่าบัตร ปชช. แล้วอัปเดตหน้าตาให้แสดงตัวเลข
+         idMask.unmaskedValue = savedIdCard;
+         idMask.updateValue();
+         
+         // ทริกเกอร์ให้ไปดึงข้อมูลใหม่จาก Server เพื่อรีเฟรชประวัติ
+         triggerSearch(savedIdCard, { company: savedCompany, date: savedDate, salesName: savedSalesName });
+         
          window.scrollTo({top: 0, behavior: 'smooth'});
-         $('#idCard').focus(); // ให้เมาส์ไปรอที่ช่องเลขบัตร ปชช. สำหรับคนต่อไป
+      } else {
+         window.scrollTo({top: 0, behavior: 'smooth'});
       }
     }
 
@@ -811,6 +994,7 @@
         let victimActualReturns = {};
         let victimActualInvests = {};
         let typeSummary = {};
+        let salesSummary = {}; // เพิ่มตัวแปรสำหรับเก็บข้อมูลสรุปเซลล์
         
         allTableData.forEach(row => {
           if(!row[0]) return;
@@ -822,11 +1006,10 @@
               ? investmentUnitMap[invType] 
               : (row[10] ? row[10].toString().trim() : '');
 
-          let netAmount = parseFloat(row[13].toString().replace(/,/g, '')) || 0; 
-          let actualInvest = parseFloat(row[18].toString().replace(/,/g, '')) || 0; 
-          let actualReturn = parseFloat(row[19].toString().replace(/,/g, '')) || 0; 
-          
-          totalContracts++;
+          let salesName = row[11] ? row[11].toString().trim() : 'ไม่ระบุ'; // ดึงชื่อเซลล์
+          let netAmount = parseFloat(row[14].toString().replace(/,/g, '')) || 0; 
+          let actualInvest = parseFloat(row[19].toString().replace(/,/g, '')) || 0; 
+          let actualReturn = parseFloat(row[20].toString().replace(/,/g, '')) || 0; 
           totalNetAmount += netAmount;
           if (idCard) {
             uniqueVictims.add(idCard);
@@ -838,8 +1021,13 @@
           typeSummary[invType].count += 1; 
           typeSummary[invType].units += unitAmount; 
           typeSummary[invType].sum += netAmount;
-          
           typeSummary[invType].unitText = unitText; 
+
+          // ประมวลผลตารางสรุปข้อมูลเซลล์
+          if (!salesSummary[salesName]) salesSummary[salesName] = { count: 0, victims: new Set(), sum: 0 };
+          salesSummary[salesName].count += 1; // เพิ่ม 1 สัญญา
+          if (idCard) salesSummary[salesName].victims.add(idCard); // เพิ่มผู้เสียหายแบบไม่ซ้ำลง Set
+          salesSummary[salesName].sum += netAmount; // รวมยอดเงินสุทธิ
         });
 
         let totalActualReturnSum = Object.values(victimActualReturns).reduce((a, b) => a + b, 0);
@@ -865,6 +1053,27 @@
         
         if (tbody === '') tbody = '<tr><td colspan="4" class="text-center text-muted">ยังไม่มีข้อมูล</td></tr>';
         $('#dash-table-body').html(tbody);
+
+        // นำข้อมูล Sales ลงตาราง และจัดเรียงยอดขายจากมากไปน้อย
+        let salesTbody = '';
+        let salesArray = Object.keys(salesSummary).map(name => {
+          return { name: name, count: salesSummary[name].count, victims: salesSummary[name].victims.size, sum: salesSummary[name].sum };
+        });
+        
+        // เรียงลำดับตามมูลค่าสุทธิ (มากไปน้อย)
+        salesArray.sort((a, b) => b.sum - a.sum);
+
+        salesArray.forEach(item => {
+          salesTbody += `<tr>
+            <td>${item.name}</td>
+            <td class="text-end">${item.count.toLocaleString('th-TH')}</td>
+            <td class="text-end">${item.victims.toLocaleString('th-TH')}</td>
+            <td class="text-end fw-bold text-primary">${item.sum.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+          </tr>`;
+        });
+        
+        if (salesTbody === '') salesTbody = '<tr><td colspan="4" class="text-center text-muted">ยังไม่มีข้อมูล</td></tr>';
+        $('#dash-sales-table-body').html(salesTbody);
 
         if(myChart) myChart.destroy();
         const ctx = document.getElementById('invChart').getContext('2d');
