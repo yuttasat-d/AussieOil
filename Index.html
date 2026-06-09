@@ -44,6 +44,10 @@
     .section-title { font-size: 1.1rem; font-weight: 600; color: var(--primary-color); margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
     .payment-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; transition: all 0.3s;}
     .payment-details { background: white; border-radius: 8px; padding: 12px; margin-top: 10px; border: 1px dashed #cbd5e1; }
+    
+    /* สไตล์เพิ่มเติมสำหรับ KPI Groups */
+    .kpi-group-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+    .kpi-icon { font-size: 2rem; opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -65,16 +69,90 @@
       <li class="nav-item"><a class="nav-link" data-tab="table"><i class="fa-solid fa-table-list"></i> ตารางข้อมูล</a></li>
     </ul>
 
-    <!-- ================= DASHBOARD SECTION ================= -->
+    <!-- ================= DASHBOARD SECTION (ปรับแต่งใหม่) ================= -->
     <div id="section-dashboard" class="content-section">
-      <div class="row mb-4">
-        <div class="col-md-3 mb-3"><div class="card card-stat bg-white text-center p-3 border-start border-primary border-5"><h6 class="text-muted small">จำนวนผู้เสียหายรวม (ราย)</h6><h3 id="dash-victims" class="text-primary fw-bold">0</h3></div></div>
-        <div class="col-md-3 mb-3"><div class="card card-stat bg-white text-center p-3 border-start border-warning border-5"><h6 class="text-muted small">เงินลงทุนรวม (สัญญา)</h6><h3 id="dash-net-amount" class="text-warning fw-bold">0.00</h3></div></div>
-        <div class="col-md-3 mb-3"><div class="card card-stat bg-white text-center p-3 border-start border-info border-5"><h6 class="text-muted small">เงินที่จ่ายจริงรวม (บัญชีทรัพย์ฯ)</h6><h3 id="dash-actual-invest" class="text-info fw-bold">0.00</h3></div></div>
-        <div class="col-md-3 mb-3"><div class="card card-stat bg-white text-center p-3 border-start border-success border-5"><h6 class="text-muted small">ผลตอบแทนคืนรวม (บัญชีทรัพย์ฯ)</h6><h3 id="dash-actual-return" class="text-success fw-bold">0.00</h3></div></div>
+      
+      <!-- Group 1: ข้อมูลบุคคลและสัญญา -->
+      <div class="mb-5">
+          <div class="kpi-group-title text-primary"><i class="fa-solid fa-users"></i> กลุ่มที่ 1: ข้อมูลบุคคลและสัญญา</div>
+          <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card card-stat bg-white p-3 border-start border-primary border-5 h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted small mb-1">จำนวนผู้เสียหายรวม</h6>
+                            <h3 id="dash-victims" class="text-primary fw-bold mb-0">...</h3>
+                        </div>
+                        <i class="fa-solid fa-user-injured kpi-icon text-primary"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-stat bg-white p-3 border-start border-info border-5 h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted small mb-1">จำนวนสัญญารวม</h6>
+                            <h3 id="dash-contracts" class="text-info fw-bold mb-0">...</h3>
+                        </div>
+                        <i class="fa-solid fa-file-contract kpi-icon text-info"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-stat bg-white p-3 border-start border-secondary border-5 h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted small mb-1">จำนวนเซลล์รวม</h6>
+                            <h3 id="dash-sales-count" class="text-secondary fw-bold mb-0">...</h3>
+                        </div>
+                        <i class="fa-solid fa-user-tie kpi-icon text-secondary"></i>
+                    </div>
+                </div>
+            </div>
+          </div>
       </div>
-      <div class="row mb-4 justify-content-center">
-        <div class="col-md-4 mb-3"><div class="card card-stat bg-white text-center p-3 border-start border-danger border-5"><h6 class="text-muted small">มูลค่าความเสียหายสุทธิรวม</h6><h3 id="dash-net-damage" class="text-danger fw-bold">0.00</h3></div></div>
+
+      <!-- Group 2: ข้อมูลทางการเงิน -->
+      <div class="mb-5">
+          <div class="kpi-group-title text-danger"><i class="fa-solid fa-sack-dollar"></i> กลุ่มที่ 2: ข้อมูลทางการเงิน (บัญชีทรัพย์ฯ)</div>
+          <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card card-stat bg-white p-3 border-start border-warning border-5 h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted small mb-1">เงินที่จ่ายจริงรวม</h6>
+                            <h3 id="dash-actual-invest" class="text-warning fw-bold mb-0">...</h3>
+                            <small class="text-muted">บาท</small>
+                        </div>
+                        <i class="fa-solid fa-money-bill-transfer kpi-icon text-warning"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-stat bg-white p-3 border-start border-success border-5 h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted small mb-1">ผลตอบแทนคืนรวม</h6>
+                            <h3 id="dash-actual-return" class="text-success fw-bold mb-0">...</h3>
+                            <small class="text-muted">บาท</small>
+                        </div>
+                        <i class="fa-solid fa-hand-holding-dollar kpi-icon text-success"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-stat bg-danger-subtle p-3 border-start border-danger border-5 h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-danger small mb-1 fw-bold">มูลค่าความเสียหายสุทธิรวม</h6>
+                            <h3 id="dash-net-damage" class="text-danger fw-bold mb-0">...</h3>
+                            <small class="text-danger">บาท (ทุนหักผลตอบแทน)</small>
+                        </div>
+                        <i class="fa-solid fa-triangle-exclamation kpi-icon text-danger"></i>
+                    </div>
+                </div>
+            </div>
+          </div>
       </div>
       
       <!-- สรุปการลงทุน -->
@@ -250,6 +328,27 @@
               <div class="col-md-3 mb-3"><label class="form-label">ผลตอบแทนเพิ่ม (%)</label><input type="text" class="form-control number-input text-info fw-bold" id="returnPercent" name="returnPercent"></div>
               <div class="col-md-3 mb-3"><label class="form-label">รวมผลตอบแทนที่ได้/เดือน</label><input type="text" class="form-control number-input text-primary fw-bold" id="totalReturn" name="totalReturn"></div>
               <div class="col-md-3 mb-3"><label class="form-label">อายุสัญญา (ปี)</label><input type="text" class="form-control number-input" id="contractYears" name="contractYears"></div>
+            </div>
+
+            <!-- เพิ่มปุ่มและฟอร์มสำหรับ ส่วนที่ 2 -->
+            <div class="mb-3">
+              <button type="button" class="btn btn-sm btn-outline-primary shadow-sm" id="btnShowPart2" onclick="togglePart2(true)"><i class="fa-solid fa-plus"></i> เพิ่มผลตอบแทนส่วนที่ 2 (ถ้ามี)</button>
+            </div>
+            
+            <div class="row mb-2 d-none p-3 bg-light rounded border border-info" id="returnPart2Container">
+              <div class="col-md-6 mb-3 d-flex align-items-center justify-content-end">
+                  <span class="fw-bold text-info"><i class="fa-solid fa-code-branch"></i> ข้อมูลผลตอบแทน ส่วนที่ 2 <i class="fa-solid fa-arrow-right mx-2"></i></span>
+              </div>
+              <div class="col-md-3 mb-3">
+                  <label class="form-label text-info">รวมผลตอบแทน/เดือน (ส่วน 2)</label>
+                  <input type="text" class="form-control number-input text-info fw-bold" id="totalReturn2" name="totalReturn2">
+              </div>
+              <div class="col-md-3 mb-3">
+                  <label class="form-label d-flex justify-content-between">อายุสัญญา (ส่วน 2) 
+                      <button type="button" class="btn btn-sm text-danger p-0 m-0 border-0" onclick="togglePart2(false)"><i class="fa-solid fa-times"></i> ยกเลิก</button>
+                  </label>
+                  <input type="text" class="form-control number-input" id="contractYears2" name="contractYears2">
+              </div>
             </div>
 
             <!-- ทรัพย์สินรายบุคคล -->
@@ -495,9 +594,16 @@
       
       let formObj = {};
       $('#dataForm').serializeArray().forEach(item => {
-        if(['unitAmount', 'fullAmount', 'discount', 'netAmount', 'monthlyReturn', 'contractYears', 'returnPercent', 'totalReturn'].includes(item.name)) formObj[item.name] = item.value.replace(/,/g, '');
+        if(['unitAmount', 'fullAmount', 'discount', 'netAmount', 'monthlyReturn', 'contractYears', 'returnPercent', 'totalReturn', 'totalReturn2', 'contractYears2'].includes(item.name)) formObj[item.name] = item.value.replace(/,/g, '');
         else formObj[item.name] = item.value;
       });
+
+      // รวมข้อมูลส่วนที่ 1 และ 2 เข้าด้วยกันด้วยสัญลักษณ์ |
+      if (formObj.totalReturn2 || formObj.contractYears2) {
+          formObj.totalReturn = (formObj.totalReturn || '') + '|' + (formObj.totalReturn2 || '');
+          formObj.contractYears = (formObj.contractYears || '') + '|' + (formObj.contractYears2 || '');
+      }
+
       formObj.idCard = idMask.unmaskedValue;
       formObj.actualInvest = isExistingPerson ? "" : $('#actualInvest').val().replace(/,/g, '');
       formObj.actualReturn = isExistingPerson ? "" : $('#actualReturn').val().replace(/,/g, '');
@@ -558,15 +664,15 @@
                 <input type="text" class="form-control form-control-sm p-cash-to" placeholder="ระบุชื่อ" value="${presetObj?.details?.paidTo||''}"></div>
             </div>
             <div class="row gx-2 d-detail-cheque d-none">
-              <div class="col-md-2 mb-2"><label class="form-label small text-muted">เช็คธนาคาร</label>
+              <div class="col-md-4 mb-2"><label class="form-label small text-muted">เช็คธนาคาร</label>
                 <select class="p-cheque-bank" placeholder="เลือก/พิมพ์..."></select></div>
-              <div class="col-md-2 mb-2"><label class="form-label small text-muted">วันที่บนเช็ค</label>
+              <div class="col-md-4 mb-2"><label class="form-label small text-muted">วันที่บนเช็ค</label>
                 <input type="text" class="form-control form-control-sm bg-white p-cheque-date" placeholder="เลือกวันที่" readonly></div>
-              <div class="col-md-3 mb-2"><label class="form-label small text-muted">สั่งจ่าย (ชื่อ)</label>
+              <div class="col-md-4 mb-2"><label class="form-label small text-muted">สั่งจ่าย (ชื่อ)</label>
                 <input type="text" class="form-control form-control-sm p-cheque-payee" placeholder="ระบุชื่อ" value="${presetObj?.details?.payee||''}"></div>
-              <div class="col-md-2 mb-2"><label class="form-label small text-muted">เลขที่เช็ค</label>
+              <div class="col-md-6 mb-2 mt-1"><label class="form-label small text-muted">เลขที่เช็ค</label>
                 <input type="text" class="form-control form-control-sm p-cheque-no" placeholder="เลขเช็ค" value="${presetObj?.details?.chequeNo||''}"></div>
-              <div class="col-md-3 mb-2"><label class="form-label small text-muted">เลขที่บัญชี</label>
+              <div class="col-md-6 mb-2 mt-1"><label class="form-label small text-muted">เลขที่บัญชี</label>
                 <input type="text" class="form-control form-control-sm p-cheque-acc" placeholder="เลขที่บัญชี" value="${presetObj?.details?.chequeAcc||''}"></div>
             </div>
           </div>
@@ -668,9 +774,23 @@
       $('#unitAmount').val(addCommas(current.toString())).trigger('input');
     }
 
+    // ฟังก์ชันซ่อน/แสดง ส่วนที่ 2
+    window.togglePart2 = function(show) {
+      if (show) {
+          $('#returnPart2Container').removeClass('d-none');
+          $('#btnShowPart2').addClass('d-none');
+      } else {
+          $('#returnPart2Container').addClass('d-none');
+          $('#btnShowPart2').removeClass('d-none');
+          $('#totalReturn2').val('');
+          $('#contractYears2').val('');
+          // Trigger ให้คำนวณใหม่เมื่อลบส่วนที่ 2 ออกไป
+          $('#totalReturn').trigger('input');
+      }
+    };
+
     function setupCalculations() {
       const $full = $('#fullAmount'), $discount = $('#discount'), $net = $('#netAmount');
-      const $percent = $('#returnPercent'), $total = $('#totalReturn'), $monthly = $('#monthlyReturn');
       
       function calcVals() {
         let f = parseFloat($full.val().replace(/,/g, '')) || 0, d = parseFloat($discount.val().replace(/,/g, '')) || 0, n = parseFloat($net.val().replace(/,/g, '')) || 0;
@@ -680,17 +800,41 @@
       $discount.on('input', calcVals); $net.on('input', calcVals); $full.on('input', calcVals);
 
       function calcRet() {
-        let t = parseFloat($total.val().replace(/,/g, '')) || 0, m = parseFloat($monthly.val().replace(/,/g, '')) || 0, p = parseFloat($percent.val().replace(/,/g, '')) || 0;
-        if(this.id === 'totalReturn' || this.id === 'returnPercent') {
-          if ($percent.val() !== '') $monthly.val(addCommas((t / (1 + (p / 100))).toFixed(2)));
-          else if ($monthly.val() !== '' && m > 0) $percent.val(addCommas((((t / m) - 1) * 100).toFixed(2)));
-        }
-        if(this.id === 'monthlyReturn') {
-          if ($percent.val() !== '') $total.val(addCommas((m * (1 + (p / 100))).toFixed(2)));
-          else if ($total.val() !== '' && m > 0) $percent.val(addCommas((((t / m) - 1) * 100).toFixed(2)));
+        let t1 = parseFloat($('#totalReturn').val().replace(/,/g, '')) || 0;
+        let t2 = parseFloat($('#totalReturn2').val().replace(/,/g, '')) || 0;
+        let sum_t = t1 + t2;
+        
+        let m = parseFloat($('#monthlyReturn').val().replace(/,/g, '')) || 0;
+        let pStr = $('#returnPercent').val();
+        let p = parseFloat(pStr.replace(/,/g, '')) || 0;
+
+        // หากมีการเปลี่ยนแปลงที่ รวมผลตอบแทน (ส่วน 1 หรือ 2) หรือเปอร์เซ็นต์
+        if (this.id === 'totalReturn' || this.id === 'totalReturn2' || this.id === 'returnPercent') {
+          if (pStr !== '') {
+            // คำนวณหาผลตอบแทนก่อนที่จะบวกเปอร์เซ็นต์ (Backward calculation)
+            $('#monthlyReturn').val(addCommas((sum_t / (1 + (p / 100))).toFixed(2)));
+          } else if ($('#monthlyReturn').val() !== '' && m > 0) {
+            // ถ้าเปอร์เซ็นต์ว่าง แต่ยอดต้นทางถูกกรอกไว้ จะหาเปอร์เซ็นต์ย้อนกลับให้
+            $('#returnPercent').val(addCommas((((sum_t / m) - 1) * 100).toFixed(2)));
+          } else {
+            // ถ้าไม่กรอกเปอร์เซ็นต์ ผลตอบแทนรายเดือนต้นทาง จะเท่ากับผลรวมโดยตรง
+            $('#monthlyReturn').val(addCommas(sum_t.toFixed(2)));
+          }
+        } 
+        // หากผู้ใช้เลือกกรอก ผลตอบแทนต้นทาง (monthlyReturn) โดยตรง
+        else if (this.id === 'monthlyReturn') {
+          if (pStr !== '') {
+            // ปรับปรุงผลรวมส่วนที่ 1 แทน โดยตรึงส่วนที่ 2 ไว้ (Forward calculation)
+            let newSum = m * (1 + (p / 100));
+            $('#totalReturn').val(addCommas((newSum - t2).toFixed(2)));
+          } else if (sum_t > 0 && m > 0) {
+            $('#returnPercent').val(addCommas((((sum_t / m) - 1) * 100).toFixed(2)));
+          }
         }
       }
-      $total.on('input', calcRet); $percent.on('input', calcRet); $monthly.on('input', calcRet);
+      
+      // อัปเดตผูก Event Listener ให้ครอบคลุมการเปลี่ยนแปลงของยอดส่วนที่ 2 ด้วย
+      $('#totalReturn, #totalReturn2, #returnPercent, #monthlyReturn').on('input', calcRet);
 
       $('#actualInvest, #actualReturn').on('input change', function() {
         if (!isExistingPerson) {
