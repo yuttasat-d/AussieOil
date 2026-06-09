@@ -16,6 +16,10 @@ function getSettings() {
   let unitTypes = [];
   let companyTypes = [];
   let salesNames = [];
+  let payMethods = []; // คอลัมน์ E
+  let destAccounts = []; // คอลัมน์ F
+  let edcMachines = []; // คอลัมน์ G
+  let senderBanks = []; // คอลัมน์ H (ธนาคารต้นทางผู้โอน/เช็ค)
   let unitMapping = {}; 
   
   for (let i = 1; i < data.length; i++) {
@@ -23,16 +27,19 @@ function getSettings() {
     let unit = (data[i].length > 1 && data[i][1]) ? data[i][1].toString().trim() : "";
     let comp = (data[i].length > 2 && data[i][2]) ? data[i][2].toString().trim() : "";
     let sales = (data[i].length > 3 && data[i][3]) ? data[i][3].toString().trim() : "";
+    let payM = (data[i].length > 4 && data[i][4]) ? data[i][4].toString().trim() : "";
+    let dest = (data[i].length > 5 && data[i][5]) ? data[i][5].toString().trim() : "";
+    let edc = (data[i].length > 6 && data[i][6]) ? data[i][6].toString().trim() : "";
+    let sBank = (data[i].length > 7 && data[i][7]) ? data[i][7].toString().trim() : "";
     
-    if (inv) {
-      invTypes.push(inv);
-      if (unit) {
-        unitMapping[inv] = unit; 
-      }
-    }
+    if (inv) { invTypes.push(inv); if (unit) unitMapping[inv] = unit; }
     if (unit) unitTypes.push(unit);
     if (comp) companyTypes.push(comp);
     if (sales) salesNames.push(sales);
+    if (payM) payMethods.push(payM);
+    if (dest) destAccounts.push(dest);
+    if (edc) edcMachines.push(edc);
+    if (sBank) senderBanks.push(sBank);
   }
   
   return {
@@ -40,6 +47,10 @@ function getSettings() {
     unitTypes: [...new Set(unitTypes)].filter(String),
     companyTypes: [...new Set(companyTypes)].filter(String),
     salesNames: [...new Set(salesNames)].filter(String),
+    payMethods: [...new Set(payMethods)].filter(String),
+    destAccounts: [...new Set(destAccounts)].filter(String),
+    edcMachines: [...new Set(edcMachines)].filter(String),
+    senderBanks: [...new Set(senderBanks)].filter(String),
     unitMapping: unitMapping 
   };
 }
@@ -55,63 +66,50 @@ function validateThaiIDServer(id) {
   return checkDigit === parseInt(id.charAt(12));
 }
 
-// ----------------------------------------------------
-// ฟังก์ชันค้นหาข้อมูลคนเดิม เพื่อดึงประวัติมาแสดง
-// ----------------------------------------------------
+// ค้นหาข้อมูลคนเดิม เพื่อดึงประวัติมาแสดง
 function searchCitizenId(citizenIdRaw) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data');
   if (!sheet) return { found: false };
   
   const data = sheet.getDataRange().getValues();
-  
   let found = false;
   let count = 0;
-  let personData = {
-    totalInvest: 0,
-    totalReturn: 0,
-    netDamage: 0
-  };
+  let personData = { totalInvest: 0, totalReturn: 0, netDamage: 0 };
   
-  // Index: 1=แฟ้มที่, 2=เลขปชช, 3=ชื่อ, 4=ผู้รับมอบอำนาจ, 19=Invest, 20=Return, 21=Damage (มีการขยับ Index แล้ว)
   for (let i = 1; i < data.length; i++) {
     let idCol = String(data[i][2]).replace(/-/g, '');
 
     if (idCol === citizenIdRaw) {
-      count++; // นับจำนวนสัญญาที่มีในระบบ
-      
-      // ดึงข้อมูลส่วนตัว (ดึงจากอันแรกที่เจอ)
+      count++; 
       if (!found) {
         personData.fileNo = data[i][1];
         personData.fullName = data[i][3];
-        personData.phone = data[i][4];
+        personData.authPerson = data[i][4];
+        personData.contactAddress = data[i][5];
+        personData.contactPhone = data[i][6];
         found = true;
       }
-      
-      // ดึงยอดยกมา (มองหาแถวที่มีค่ายอดรวม เนื่องจากแถวใหม่ๆ จะถูกบันทึกเป็นค่าว่าง)
-      if (data[i][19] !== "" && personData.totalInvest == 0) personData.totalInvest = data[i][19];
-      if (data[i][20] !== "" && personData.totalReturn == 0) personData.totalReturn = data[i][20];
-      if (data[i][21] !== "" && personData.netDamage == 0) personData.netDamage = data[i][21];
+      if (data[i][21] !== "" && personData.totalInvest == 0) personData.totalInvest = data[i][21];
+      if (data[i][22] !== "" && personData.totalReturn == 0) personData.totalReturn = data[i][22];
+      if (data[i][23] !== "" && personData.netDamage == 0) personData.netDamage = data[i][23];
     }
   }
   
-  if (found) {
-    return { found: true, count: count, data: personData };
-  }
+  if (found) return { found: true, count: count, data: personData };
   return { found: false };
 }
 
-// บันทึก หรือ อัปเดตข้อมูล (รองรับ 23 คอลัมน์)
+// บันทึก หรือ อัปเดตข้อมูล
 function saveData(formObj) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
     
-    // ตรวจสอบเลข ปชช. ก่อนเซฟ
     let cleanIdCard = formObj.idCard.toString().replace(/\D/g, '');
     if (!validateThaiIDServer(cleanIdCard)) {
        throw new Error("เลขประจำตัวประชาชนไม่ถูกต้องตามหลักเกณฑ์");
     }
-    formObj.idCard = cleanIdCard; // มั่นใจว่าบันทึกแบบไม่มีขีด
+    formObj.idCard = cleanIdCard; 
     
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const dataSheet = ss.getSheetByName('Data');
@@ -121,31 +119,46 @@ function saveData(formObj) {
     let id = isUpdate ? formObj.id : Utilities.getUuid();
     let timestamp = new Date();
     
-    // โครงสร้างข้อมูล 23 คอลัมน์ (ดัชนี 0-22) 
+    // ดึงค่าบัญชีปลายทาง เครื่อง EDC และธนาคาร ใหม่จาก JSON การชำระเงิน
+    let newDestAccounts = [];
+    let newEdcMachines = [];
+    let newSenderBanks = [];
+    try {
+      let payments = JSON.parse(formObj.paymentDate);
+      payments.forEach(p => {
+        if (p.method === 'โอนเงิน' && p.details && p.details.destAccount) newDestAccounts.push(p.details.destAccount);
+        if (p.method === 'โอนเงิน' && p.details && p.details.senderBank) newSenderBanks.push(p.details.senderBank);
+        if (p.method === 'เช็ค' && p.details && p.details.chequeBank) newSenderBanks.push(p.details.chequeBank);
+        if (p.method === 'บัตรเครดิต' && p.details && p.details.edc) newEdcMachines.push(p.details.edc);
+      });
+    } catch(e) {}
+
     let rowData = [
-      id,                     // 0: A - ID
-      formObj.fileNo,         // 1: B - แฟ้มที่
-      formObj.idCard,         // 2: C - เลข ปชช.
-      formObj.fullName,       // 3: D - ชื่อผู้เสียหาย
-      formObj.phone,          // 4: E - ผู้รับมอบอำนาจ
-      formObj.contractDate,   // 5: F - วันที่ทำสัญญา
-      formObj.paymentDate,    // 6: G - วันที่โอนเงิน/จ่ายเงิน (JSON string ของสลิป)
-      formObj.companyName,    // 7: H - บริษัทที่ทำสัญญา
-      formObj.invType,        // 8: I - ประเภทการลงทุน
-      formObj.unitAmount,     // 9: J - จำนวน
-      formObj.unitType,       // 10: K - หน่วยนับ
-      formObj.salesName,      // 11: L - รายชื่อเซลล์ (NEW)
-      formObj.fullAmount,     // 12: M - มูลค่าเต็มตามสัญญา (SHIFTED)
-      formObj.discount,       // 13: N - ส่วนลดเงินลงทุน
-      formObj.netAmount,      // 14: O - ยอดเงินลงทุนสุทธิ
-      formObj.monthlyReturn,  // 15: P - ผลตอบแทน/เดือน
-      formObj.returnPercent,  // 16: Q - ผลตอบแทนเพิ่ม (%)
-      formObj.totalReturn,    // 17: R - รวมผลตอบแทนที่ได้จริง/เดือน
-      formObj.contractYears,  // 18: S - อายุสัญญา (ปี)
-      formObj.actualInvest,   // 19: T - เงินลงทุนที่จ่ายจริงรวมทั้งหมด (ตามบัญชีทรัพย์) (บาท)
-      formObj.actualReturn,   // 20: U - ผลตอบแทนที่ได้รับคืนจริงรวมทั้งหมด (ตามบัญชีทรัพย์) (บาท)
-      formObj.netDamage,      // 21: V - มูลค่าความเสียหายสุทธิรายบุคคล (ตามบัญชีทรัพย์) (บาท)
-      timestamp               // 22: W - วันที่กรอกข้อมูล (Timestamp)
+      id,                     // 0: A
+      formObj.fileNo,         // 1: B
+      formObj.idCard,         // 2: C
+      formObj.fullName,       // 3: D
+      formObj.authPerson,     // 4: E
+      formObj.contactAddress, // 5: F
+      formObj.contactPhone,   // 6: G
+      formObj.contractDate,   // 7: H
+      formObj.paymentDate,    // 8: I - JSON Payments
+      formObj.companyName,    // 9: J
+      formObj.invType,        // 10: K
+      formObj.unitAmount,     // 11: L
+      formObj.unitType,       // 12: M
+      formObj.salesName,      // 13: N
+      formObj.fullAmount,     // 14: O
+      formObj.discount,       // 15: P
+      formObj.netAmount,      // 16: Q
+      formObj.monthlyReturn,  // 17: R
+      formObj.returnPercent,  // 18: S
+      formObj.totalReturn,    // 19: T
+      formObj.contractYears,  // 20: U
+      formObj.actualInvest,   // 21: V
+      formObj.actualReturn,   // 22: W
+      formObj.netDamage,      // 23: X
+      timestamp               // 24: Y
     ];
     
     if (isUpdate) {
@@ -155,19 +168,18 @@ function saveData(formObj) {
         let rowIndex = idColumn.indexOf(id) + 1; 
         
         if (rowIndex > 1) { 
-          rowData[22] = dataSheet.getRange(rowIndex, 23).getValue(); // รักษา Timestamp เดิม (คอลัมน์ 23)
+          rowData[24] = dataSheet.getRange(rowIndex, 25).getValue(); // เก็บ Timestamp เดิมไว้
           dataSheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
         } else {
           throw new Error("ไม่พบข้อมูลที่ต้องการแก้ไข");
         }
-      } else {
-        throw new Error("ตารางข้อมูลว่างเปล่า");
       }
     } else {
       dataSheet.appendRow(rowData);
     }
     
-    updateSettingsIfNew(settingsSheet, formObj.invType, formObj.unitType, formObj.companyName, formObj.salesName);
+    // อัพเดท Settings ถ้ามีค่าใหม่โผล่มา
+    updateSettingsIfNew(settingsSheet, formObj.invType, formObj.unitType, formObj.companyName, formObj.salesName, newDestAccounts, newEdcMachines, newSenderBanks);
     return { status: 'success', message: 'บันทึกข้อมูลเรียบร้อยแล้ว' };
     
   } catch (e) {
@@ -177,38 +189,28 @@ function saveData(formObj) {
   }
 }
 
-function updateSettingsIfNew(sheet, newInvType, newUnitType, newCompany, newSalesName) {
+// อัพเดทข้อมูลลงตาราง Settings ทีละคอลัมน์
+function updateSettingsIfNew(sheet, newInvType, newUnitType, newCompany, newSalesName, newDestAccounts, newEdcMachines, newSenderBanks) {
   if (!sheet) return;
-  const data = sheet.getDataRange().getValues();
-  let existingInv = [];
-  let existingUnit = [];
-  let existingCompany = [];
-  let existingSales = [];
   
-  for(let i = 1; i < data.length; i++) {
-    if(data[i][0]) existingInv.push(data[i][0].toString().trim());
-    if(data[i].length > 1 && data[i][1]) existingUnit.push(data[i][1].toString().trim());
-    if(data[i].length > 2 && data[i][2]) existingCompany.push(data[i][2].toString().trim());
-    if(data[i].length > 3 && data[i][3]) existingSales.push(data[i][3].toString().trim());
+  function appendToColumn(colIndex, newValues) {
+    if(!newValues || newValues.length === 0) return;
+    let colData = sheet.getRange(1, colIndex, sheet.getMaxRows() || 1, 1).getValues().flat().filter(String);
+    let toAdd = newValues.filter(v => v.trim() !== '' && !colData.includes(v.trim()));
+    if (toAdd.length > 0) {
+        let startRow = colData.length + 1;
+        let addData = toAdd.map(v => [v.trim()]);
+        sheet.getRange(startRow, colIndex, addData.length, 1).setValues(addData);
+    }
   }
-  
-  let nextInvRow = existingInv.length + 2;
-  let nextUnitRow = existingUnit.length + 2;
-  let nextCompanyRow = existingCompany.length + 2;
-  let nextSalesRow = existingSales.length + 2;
-  
-  if (newInvType && !existingInv.includes(newInvType.trim())) {
-    sheet.getRange(nextInvRow, 1).setValue(newInvType.trim());
-  }
-  if (newUnitType && !existingUnit.includes(newUnitType.trim())) {
-    sheet.getRange(nextUnitRow, 2).setValue(newUnitType.trim());
-  }
-  if (newCompany && !existingCompany.includes(newCompany.trim())) {
-    sheet.getRange(nextCompanyRow, 3).setValue(newCompany.trim());
-  }
-  if (newSalesName && !existingSales.includes(newSalesName.trim())) {
-    sheet.getRange(nextSalesRow, 4).setValue(newSalesName.trim());
-  }
+
+  if (newInvType) appendToColumn(1, [newInvType]);
+  if (newUnitType) appendToColumn(2, [newUnitType]);
+  if (newCompany) appendToColumn(3, [newCompany]);
+  if (newSalesName) appendToColumn(4, [newSalesName]);
+  if (newDestAccounts && newDestAccounts.length > 0) appendToColumn(6, newDestAccounts); // Col F
+  if (newEdcMachines && newEdcMachines.length > 0) appendToColumn(7, newEdcMachines); // Col G
+  if (newSenderBanks && newSenderBanks.length > 0) appendToColumn(8, newSenderBanks); // Col H
 }
 
 function getData() {
@@ -216,7 +218,7 @@ function getData() {
   const sheet = ss.getSheetByName('Data');
   if(!sheet) return [];
   const data = sheet.getDataRange().getDisplayValues();
-  if (data.length > 0) data.shift(); // ลบ Header ออก
+  if (data.length > 0) data.shift(); 
   return data;
 }
 
