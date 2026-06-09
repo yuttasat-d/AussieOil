@@ -6,6 +6,146 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
+// --------------------------------------------------------
+// ฟังก์ชันสำหรับคำนวณ Dashboard แบบมี Caching
+// --------------------------------------------------------
+function getDashboardData() {
+  const cache = CacheService.getScriptCache();
+  const cachedData = cache.get('dashboard_stats');
+  
+  // หากมี Cache อยู่แล้ว ให้ส่งกลับทันที ลดการอ่าน Sheets
+  if (cachedData) {
+    return JSON.parse(cachedData);
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Data');
+  if (!sheet) return null;
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return null;
+  
+  data.shift(); // เอา Header ออก
+
+  // Group 1: ข้อมูลบุคคลและสัญญา
+  let uniqueVictims = new Set();
+  let totalContracts = 0;
+  let uniqueSales = new Set();
+  
+  // Group 2: ข้อมูลทางการเงิน
+  let victimFinancials = {}; // เก็บยอดเงินแยกตามรายบุคคลเพื่อป้องกันการนับเบิ้ล
+  
+  // สำหรับ Charts
+  let charts = {
+    types: {}, sales: {}, payMethods: {}
+  };
+
+  for (let i = 0; i < data.length; i++) {
+    let row = data[i];
+    if (!row[0]) continue; // ข้ามแถวว่าง
+    
+    totalContracts++;
+    
+    let idCard = row[2] ? row[2].toString().replace(/\D/g, '') : '';
+    let invType = row[10] ? row[10].toString().trim() : 'ไม่ระบุ';
+    let unitAmount = parseFloat(row[11]) || 0;
+    let unitText = row[12] ? row[12].toString().trim() : '';
+    let salesName = row[13] ? row[13].toString().trim() : 'ไม่ระบุ';
+    let netAmount = parseFloat(row[16]) || 0;
+    
+    // ดึงยอดลงทุน/คืนจริงที่เคยกรอกไว้ (จะนับเฉพาะค่าสูงสุดของคนๆนั้น กันการกรอกซ้ำ)
+    let actualInvest = parseFloat(row[21]) || 0;
+    let actualReturn = parseFloat(row[22]) || 0;
+
+    if (idCard) {
+      uniqueVictims.add(idCard);
+      if (!victimFinancials[idCard]) {
+        victimFinancials[idCard] = { invest: 0, return: 0 };
+      }
+      if (actualInvest > victimFinancials[idCard].invest) victimFinancials[idCard].invest = actualInvest;
+      if (actualReturn > victimFinancials[idCard].return) victimFinancials[idCard].return = actualReturn;
+    }
+    
+    if (salesName && salesName !== 'ไม่ระบุ') uniqueSales.add(salesName);
+
+    // เก็บข้อมูลสำหรับ Charts
+    if (!charts.types[invType]) charts.types[invType] = { count: 0, units: 0, sum: 0, unitText: unitText };
+    charts.types[invType].count++;
+    charts.types[invType].units += unitAmount;
+    charts.types[invType].sum += netAmount;
+
+    if (!charts.sales[salesName]) charts.sales[salesName] = { count: 0, victims: new Set(), sum: 0 };
+    charts.sales[salesName].count++;
+    if (idCard) charts.sales[salesName].victims.add(idCard);
+    charts.sales[salesName].sum += netAmount;
+
+    // ประมวลผล Payments
+    try {
+      let payments = JSON.parse(row[8]);
+      if (Array.isArray(payments)) {
+        payments.forEach(p => {
+          let method = p.method || 'ไม่ระบุ';
+          let pAmt = parseFloat(String(p.amount).replace(/,/g, '')) || 0;
+          if (pAmt > 0) {
+            if (!charts.payMethods[method]) charts.payMethods[method] = { count: 0, sum: 0 };
+            charts.payMethods[method].count++;
+            charts.payMethods[method].sum += pAmt;
+          }
+        });
+      }
+    } catch(e) {
+      // Data เก่า
+      if (row[8] && netAmount > 0) {
+         if (!charts.payMethods['ไม่ระบุ (ข้อมูลเก่า)']) charts.payMethods['ไม่ระบุ (ข้อมูลเก่า)'] = { count: 0, sum: 0 };
+         charts.payMethods['ไม่ระบุ (ข้อมูลเก่า)'].count++;
+         charts.payMethods['ไม่ระบุ (ข้อมูลเก่า)'].sum += netAmount;
+      }
+    }
+  }
+
+  // คำนวณยอดเงินรวม Group 2
+  let sumActualInvest = 0;
+  let sumActualReturn = 0;
+  for (let id in victimFinancials) {
+    sumActualInvest += victimFinancials[id].invest;
+    sumActualReturn += victimFinancials[id].return;
+  }
+  let sumNetDamage = sumActualInvest - sumActualReturn;
+
+  // แปลง Set เป็น Array ขนาด (size) สำหรับส่งให้ Client
+  for (let s in charts.sales) {
+    charts.sales[s].victims = charts.sales[s].victims.size;
+  }
+
+  let finalResult = {
+    kpis: {
+      group1: {
+        victims: uniqueVictims.size,
+        contracts: totalContracts,
+        sales: uniqueSales.size
+      },
+      group2: {
+        actualInvest: sumActualInvest,
+        actualReturn: sumActualReturn,
+        netDamage: sumNetDamage
+      }
+    },
+    charts: charts
+  };
+
+  // เก็บ Cache ไว้ 10 นาที (600 วินาที)
+  cache.put('dashboard_stats', JSON.stringify(finalResult), 600);
+  
+  return finalResult;
+}
+
+// --------------------------------------------------------
+// Clear Cache เมื่อมีการบันทึกหรือลบข้อมูล
+// --------------------------------------------------------
+function clearDashboardCache() {
+  CacheService.getScriptCache().remove('dashboard_stats');
+}
+
 // ดึงการตั้งค่าสำหรับ Dropdown และส่งคู่จับคู่สัญญา-หน่วยนับไปหน้าเว็บ
 function getSettings() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -178,6 +318,9 @@ function saveData(formObj) {
       dataSheet.appendRow(rowData);
     }
     
+    // Clear Cache เมื่อมีการแก้ไขข้อมูล
+    clearDashboardCache();
+    
     // อัพเดท Settings ถ้ามีค่าใหม่โผล่มา
     updateSettingsIfNew(settingsSheet, formObj.invType, formObj.unitType, formObj.companyName, formObj.salesName, newDestAccounts, newEdcMachines, newSenderBanks);
     return { status: 'success', message: 'บันทึกข้อมูลเรียบร้อยแล้ว' };
@@ -236,6 +379,8 @@ function deleteData(id) {
       
       if (rowIndex > 1) {
         sheet.deleteRow(rowIndex);
+        // Clear Cache เมื่อลบข้อมูล
+        clearDashboardCache();
         return { status: 'success', message: 'ลบข้อมูลเรียบร้อยแล้ว' };
       }
     }
